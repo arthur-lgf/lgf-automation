@@ -11,18 +11,20 @@ on:
         options:
           - slack
           - file
-  # Schedule fires at both EDT and EST candidate times for 1 PM and 6 PM ET.
-  # A preflight job below checks the live ET wall clock and skips the runs
-  # that fall on the wrong side of DST, so the actual snapshots always go
-  # out at 1 PM ET and 6 PM ET year-round.
+  # Schedule fires at both EDT and EST candidate times for 12:30 PM and 5 PM ET.
+  # The preflight job below checks the live ET wall clock against a +/-35 min
+  # window around each target, so only the runs that actually land near
+  # 12:30 PM or 5 PM ET proceed to the snapshot matrix.
   #
-  #   1 PM ET = 17:00 UTC (EDT, Mar-Nov) | 18:00 UTC (EST, Nov-Mar)
-  #   6 PM ET = 22:00 UTC (EDT, Mar-Nov) | 23:00 UTC (EST, Nov-Mar)
+  #   12:30 PM ET = 16:30 UTC (EDT) | 17:30 UTC (EST)
+  #   5:00  PM ET = 21:05 UTC (EDT) | 22:05 UTC (EST)
+  # (The 5 PM crons fire at :05 past the hour to dodge GitHub's on-the-hour
+  # scheduler-load spike, which is the main source of long delays.)
   schedule:
-    - cron: "0 17 * * *"
-    - cron: "0 18 * * *"
-    - cron: "0 22 * * *"
-    - cron: "0 23 * * *"
+    - cron: "30 16 * * *"
+    - cron: "30 17 * * *"
+    - cron: "5 21 * * *"
+    - cron: "5 22 * * *"
 
 permissions:
   contents: read
@@ -43,15 +45,33 @@ jobs:
             exit 0
           fi
 
-          et_hour=$(TZ=America/New_York date +%H)
           et_clock=$(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')
+          et_h=$(TZ=America/New_York date +%H)
+          et_m=$(TZ=America/New_York date +%M)
+          et_total=$((10#$et_h * 60 + 10#$et_m))
 
-          if [ "$et_hour" = "13" ] || [ "$et_hour" = "18" ]; then
+          # Targets, in minutes since ET midnight
+          target_a=750    # 12:30 PM ET
+          target_b=1020   # 5:00  PM ET
+          window=35       # +/- 35 min tolerance for GitHub scheduler delays
+
+          run=false
+          for target in $target_a $target_b; do
+            diff=$(( et_total - target ))
+            abs=${diff#-}
+            if [ "$abs" -le "$window" ]; then
+              run=true
+              matched=$target
+              break
+            fi
+          done
+
+          if [ "$run" = "true" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::ET wall clock is $et_clock — matches 1 PM or 6 PM target, proceeding."
+            echo "::notice::ET wall clock $et_clock is within +/-$window min of target ($matched min ET) — proceeding."
           else
             echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::ET wall clock is $et_clock — not 1 PM or 6 PM, skipping snapshots."
+            echo "::notice::ET wall clock $et_clock is outside the 12:30 PM and 5 PM target windows — skipping snapshots."
           fi
 
   snapshot:
