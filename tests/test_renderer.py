@@ -58,6 +58,55 @@ def test_classify_rows_handles_ragged_input():
     assert [c["value"] for c in rows[1]["cells"]] == ["x", "", ""]
 
 
+def test_classify_rows_only_ranked_drops_non_numeric_data_rows():
+    values = [
+        ["DAILY SALES REPORT"],
+        ["Rank", "Rep", "Qty", "Amount"],
+        ["1", "Mike", "1", "$995.00"],
+        ["2", "Eric", "1", "$695.00"],
+        ["3", "Joab", "1", "$395.00"],
+        [],
+        ["", "Jeffrey", "0", "$0.00"],
+        ["", "Dan", "0", "$0.00"],
+        ["", "Chris", "0", "$0.00"],
+        [],
+        ["Total # of sales:", "", "", "3"],
+        ["Total amount:", "", "", "$2,085.00"],
+        ["Average sale:", "", "", "$695.00"],
+    ]
+    rows = classify_rows(values, only_ranked=True)
+    kinds = [r["kind"] for r in rows]
+    assert kinds == [
+        "title",
+        "header",
+        "data",
+        "data",
+        "data",
+        "spacer",
+        "totals",
+        "totals",
+        "totals",
+    ]
+    data_rows = [r for r in rows if r["kind"] == "data"]
+    assert [r["cells"][0]["value"] for r in data_rows] == ["1", "2", "3"]
+
+
+def test_classify_rows_only_ranked_collapses_consecutive_spacers():
+    values = [
+        ["1", "Mike", "1", "$995.00"],
+        [],
+        [],
+        ["", "Jeffrey", "0", "$0.00"],
+        [],
+        [],
+        ["Total:", "", "", "1"],
+    ]
+    rows = classify_rows(values, only_ranked=True)
+    # Jeffrey row dropped; the two pre- and post- spacers each collapse to one.
+    kinds = [r["kind"] for r in rows]
+    assert kinds == ["data", "spacer", "totals"]
+
+
 def test_render_default_theme_is_dark_green_and_inlines_css():
     html = render(_values(), title="Daily Sales")  # no theme arg -> default
     assert "<title>Daily Sales</title>" in html

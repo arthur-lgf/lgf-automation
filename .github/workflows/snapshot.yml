@@ -68,6 +68,7 @@ jobs:
           REPORT_RANGE: ${{ matrix.report.range }}
           REPORT_TITLE: ${{ matrix.report.title }}
           REPORT_KEY: ${{ matrix.report.key }}
+          ONLY_RANKED: "1"
         run: |
           if [ "$OUTPUT" = "file" ]; then
             uv run python scripts/snapshot.py \

@@ -53,6 +53,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--title", default=os.getenv("TITLE", "Report"))
     parser.add_argument("--source", choices=["api", "html"], default=os.getenv("SOURCE", "api"))
     parser.add_argument(
+        "--only-ranked",
+        action="store_true",
+        default=os.getenv("ONLY_RANKED", "").strip().lower() in ("1", "true", "yes", "on"),
+        help="Drop data rows whose first cell is not a numeric rank (keeps title, header, ranked rows, totals).",
+    )
+    parser.add_argument(
         "--output",
         choices=["file", "slack"],
         default=os.getenv("OUTPUT", "slack"),
@@ -93,7 +99,7 @@ async def _run(args: argparse.Namespace) -> int:
         return 2
 
     print(f"Fetched {len(values)} rows from {args.spreadsheet_id} ({args.range_a1}).")
-    html = render(values, theme=args.theme, title=args.title)
+    html = render(values, theme=args.theme, title=args.title, only_ranked=args.only_ranked)
 
     try:
         png_bytes = await snapshot_html(

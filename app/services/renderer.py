@@ -60,7 +60,25 @@ def _starts_with_total(text: str) -> bool:
     return any(lowered == p or lowered.startswith(p + " ") for p in _TOTAL_PREFIXES)
 
 
-def classify_rows(values: list[list[str]]) -> list[Row]:
+def _looks_like_rank(cells: list[Cell]) -> bool:
+    """First cell is a positive integer like '1', '2', '10'."""
+    if not cells:
+        return False
+    first = cells[0]["value"].strip()
+    return bool(first) and first.isdigit()
+
+
+def _collapse_spacers(rows: list[Row]) -> list[Row]:
+    """Reduce consecutive spacer rows to a single spacer."""
+    out: list[Row] = []
+    for row in rows:
+        if row["kind"] == "spacer" and out and out[-1]["kind"] == "spacer":
+            continue
+        out.append(row)
+    return out
+
+
+def classify_rows(values: list[list[str]], only_ranked: bool = False) -> list[Row]:
     """Split values into structurally-meaningful rows.
 
     Row kinds, applied in order:
@@ -71,6 +89,10 @@ def classify_rows(values: list[list[str]]) -> list[Row]:
     - 'data'   : everything else
 
     Title and header are each emitted at most once.
+
+    When ``only_ranked`` is true, data rows whose first cell is not a positive
+    integer are removed (drops sub-totals / by-person breakdowns), and the
+    resulting consecutive spacer rows are collapsed to one.
     """
     if not values:
         return []
@@ -106,12 +128,26 @@ def classify_rows(values: list[list[str]]) -> list[Row]:
 
         out.append({"kind": kind, "cells": cells, "width": width})
 
+    if only_ranked:
+        out = [r for r in out if r["kind"] != "data" or _looks_like_rank(r["cells"])]
+        out = _collapse_spacers(out)
+        # Strip leading and trailing spacers left behind by the filter.
+        while out and out[0]["kind"] == "spacer":
+            out.pop(0)
+        while out and out[-1]["kind"] == "spacer":
+            out.pop()
+
     return out
 
 
-def render(values: list[list[str]], theme: str = "dark_green", title: str = "Report") -> str:
+def render(
+    values: list[list[str]],
+    theme: str = "dark_green",
+    title: str = "Report",
+    only_ranked: bool = False,
+) -> str:
     css = _load_theme(theme)
-    rows = classify_rows(values)
+    rows = classify_rows(values, only_ranked=only_ranked)
     width = rows[0]["width"] if rows else 0
     template = _env.get_template("report.html.j2")
     return template.render(title=title, css=css, rows=rows, width=width)
