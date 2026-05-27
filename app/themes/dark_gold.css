@@ -1,0 +1,63 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 24px;
+  background: #0e1117;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  color: #e6edf3;
+}
+
+table.report {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 720px;
+  background: #161b22;
+  border: 1px solid #2a313c;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+table.report thead th {
+  background: #1f2937;
+  color: #f5b50a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #2a313c;
+  text-align: left;
+  white-space: nowrap;
+}
+
+table.report tbody tr:nth-child(odd) td {
+  background: #161b22;
+}
+
+table.report tbody tr:nth-child(even) td {
+  background: #1c2230;
+}
+
+table.report tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #232a36;
+  color: #e6edf3;
+  vertical-align: middle;
+}
+
+table.report tbody td.amount {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #f5f6f8;
+}
+
+table.report tbody tr:last-child td {
+  border-bottom: none;
+}

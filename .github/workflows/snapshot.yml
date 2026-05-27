@@ -1,0 +1,87 @@
+name: Snapshot
+
+on:
+  # Manual trigger from the Actions tab with overridable inputs.
+  workflow_dispatch:
+    inputs:
+      spreadsheet_id:
+        description: "Google Spreadsheet ID"
+        required: false
+        default: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
+      gid:
+        description: "Sheet tab gid"
+        required: false
+        default: "170384010"
+      range:
+        description: "A1 range"
+        required: false
+        default: "B1:J25"
+      title:
+        description: "Report title / Slack comment"
+        required: false
+        default: "Snapshot"
+      output:
+        description: "Where to send the PNG"
+        required: false
+        default: "slack"
+        type: choice
+        options:
+          - slack
+          - file
+
+  # 9:00 America/New_York during DST (= 13:00 UTC), Mon-Fri.
+  # GitHub uses UTC. Note: scheduled workflows can be delayed up to ~15 min on free tier.
+  schedule:
+    - cron: "0 13 * * 1-5"
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: uv run playwright install --with-deps chromium
+
+      - name: Write Google service-account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Run snapshot
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          SPREADSHEET_ID: ${{ inputs.spreadsheet_id || '12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k' }}
+          GID: ${{ inputs.gid || '170384010' }}
+          RANGE: ${{ inputs.range || 'B1:J25' }}
+          TITLE: ${{ inputs.title || 'Snapshot' }}
+          OUTPUT: ${{ inputs.output || 'slack' }}
+        run: uv run python scripts/snapshot.py
+
+      - name: Upload PNG as workflow artifact
+        if: ${{ inputs.output == 'file' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-png
+          path: snapshot.png
+          if-no-files-found: error
+          retention-days: 7

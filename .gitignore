@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.python-version
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Env + secrets
+.env
+secrets/*
+!secrets/.gitkeep
+
+# Build artifacts / playwright outputs
+dist/
+build/
+snapshot.png
+*.png
+
+# IDE
+.vscode/
+.idea/

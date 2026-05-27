@@ -1,0 +1,14 @@
+services:
+  api:
+    build: .
+    image: lgf-automation:latest
+    container_name: lgf-automation
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/service-account.json
+    volumes:
+      - ./secrets:/run/secrets:ro
+    restart: unless-stopped
