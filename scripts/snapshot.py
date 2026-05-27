@@ -49,7 +49,7 @@ def _parse_args() -> argparse.Namespace:
         default=os.getenv("RANGE", "B1:J25"),
         help="A1 range, e.g. B1:J25.",
     )
-    parser.add_argument("--theme", default=os.getenv("THEME", "dark_gold"))
+    parser.add_argument("--theme", default=os.getenv("THEME", "dark_green"))
     parser.add_argument("--title", default=os.getenv("TITLE", "Report"))
     parser.add_argument("--source", choices=["api", "html"], default=os.getenv("SOURCE", "api"))
     parser.add_argument(

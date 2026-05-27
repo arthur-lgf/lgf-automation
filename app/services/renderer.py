@@ -109,7 +109,7 @@ def classify_rows(values: list[list[str]]) -> list[Row]:
     return out
 
 
-def render(values: list[list[str]], theme: str = "dark_gold", title: str = "Report") -> str:
+def render(values: list[list[str]], theme: str = "dark_green", title: str = "Report") -> str:
     css = _load_theme(theme)
     rows = classify_rows(values)
     width = rows[0]["width"] if rows else 0

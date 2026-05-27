@@ -25,7 +25,7 @@ async def google_sheet_snapshot(
     range: str = Query(..., min_length=2, description="A1 range, e.g. B1:J25"),
     gid: Optional[int] = Query(default=None),
     sheet_name: Optional[str] = Query(default=None),
-    theme: str = Query(default="dark_gold"),
+    theme: str = Query(default="dark_green"),
     output: Literal["image", "slack"] = Query(default="image"),
     source: Literal["api", "html"] = Query(default="api"),
     title: str = Query(default="Report"),

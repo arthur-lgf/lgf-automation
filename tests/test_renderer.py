@@ -58,8 +58,8 @@ def test_classify_rows_handles_ragged_input():
     assert [c["value"] for c in rows[1]["cells"]] == ["x", "", ""]
 
 
-def test_render_emits_title_header_totals_classes_and_inlines_css():
-    html = render(_values(), theme="dark_gold", title="Daily Sales")
+def test_render_default_theme_is_dark_green_and_inlines_css():
+    html = render(_values(), title="Daily Sales")  # no theme arg -> default
     assert "<title>Daily Sales</title>" in html
     assert 'id="report-table"' in html
     assert 'class="title-row"' in html
@@ -67,14 +67,20 @@ def test_render_emits_title_header_totals_classes_and_inlines_css():
     assert 'class="totals-row"' in html
     assert 'class="data-row"' in html
     assert 'class="spacer-row"' in html
-    # Theme tokens
-    assert "#f5b50a" in html  # gold
-    assert "#b91c1c" in html  # red title bar
-    assert "#fef3c7" in html  # cream totals bar
+    # dark_green theme tokens
+    assert "#4ade80" in html  # bright green header text
+    assert "#fbbf24" in html  # yellow title / totals text
+    assert "#103a2c" in html  # data row green background
     # Cell content
     assert "DAILY SALES REPORT" in html
     assert ">$995.00<" in html
     assert 'class="amount"' in html
+
+
+def test_render_dark_gold_theme_still_available():
+    html = render(_values(), theme="dark_gold")
+    assert "#b91c1c" in html  # red title bar
+    assert "#fef3c7" in html  # cream totals bar
 
 
 def test_render_unknown_theme_raises():
