@@ -11,15 +11,52 @@ on:
         options:
           - slack
           - file
-  # 13:00 UTC = 9 AM ET during DST. GitHub schedules in UTC and may delay up to ~15 min.
+  # Schedule fires at both EDT and EST candidate times for 1 PM and 6 PM ET.
+  # A preflight job below checks the live ET wall clock and skips the runs
+  # that fall on the wrong side of DST, so the actual snapshots always go
+  # out at 1 PM ET and 6 PM ET year-round.
+  #
+  #   1 PM ET = 17:00 UTC (EDT, Mar-Nov) | 18:00 UTC (EST, Nov-Mar)
+  #   6 PM ET = 22:00 UTC (EDT, Mar-Nov) | 23:00 UTC (EST, Nov-Mar)
   schedule:
-    - cron: "0 13 * * 1-5"
+    - cron: "0 17 * * *"
+    - cron: "0 18 * * *"
+    - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
 
 permissions:
   contents: read
 
 jobs:
+  preflight:
+    name: ET-hour preflight
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.guard.outputs.should_run }}
+    steps:
+      - id: guard
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Non-schedule trigger (${{ github.event_name }}) — proceeding."
+            exit 0
+          fi
+
+          et_hour=$(TZ=America/New_York date +%H)
+          et_clock=$(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')
+
+          if [ "$et_hour" = "13" ] || [ "$et_hour" = "18" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::ET wall clock is $et_clock — matches 1 PM or 6 PM target, proceeding."
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ET wall clock is $et_clock — not 1 PM or 6 PM, skipping snapshots."
+          fi
+
   snapshot:
+    needs: preflight
+    if: needs.preflight.outputs.should_run == 'true'
     name: ${{ matrix.report.title }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
