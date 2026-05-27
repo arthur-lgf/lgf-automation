@@ -1,7 +1,11 @@
 [
-  ["Region", "Rep", "Deals", "Revenue", "Margin"],
-  ["West", "A. Lopez", "12", "$48,200", "32%"],
-  ["East", "B. Khan", "8", "$31,750", "28%"],
-  ["North", "C. Ito", "15", "$62,400", "35%"],
-  ["South", "D. Vega", "6", "$22,100", "24%"]
+  ["DAILY SALES REPORT"],
+  ["Rank", "Rep", "Qty", "Amount"],
+  ["1", "Mike", "1", "$995.00"],
+  ["2", "Eric", "1", "$695.00"],
+  ["3", "Joab", "1", "$395.00"],
+  [],
+  ["Total # of sales:", "", "", "3"],
+  ["Total amount:", "", "", "$2,085.00"],
+  ["Average sale:", "", "", "$695.00"]
 ]

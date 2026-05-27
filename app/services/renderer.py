@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Literal, TypedDict
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -10,6 +11,21 @@ TEMPLATES_DIR = APP_DIR / "templates"
 THEMES_DIR = APP_DIR / "themes"
 
 _AMOUNT_RE = re.compile(r"^-?[\d,.\s$€£%()]+$")
+_TOTAL_PREFIXES = ("total", "average", "avg", "subtotal", "sum", "grand total")
+
+RowKind = Literal["title", "header", "totals", "spacer", "data"]
+
+
+class Cell(TypedDict):
+    value: str
+    is_amount: bool
+
+
+class Row(TypedDict):
+    kind: RowKind
+    cells: list[Cell]
+    width: int
+
 
 _env = Environment(
     loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -39,25 +55,63 @@ def _load_theme(theme: str) -> str:
     return candidate.read_text(encoding="utf-8")
 
 
-def normalize_rows(values: list[list[str]]) -> tuple[list[str], list[list[dict]]]:
-    if not values:
-        return [], []
-    header = [str(c).strip() for c in values[0]]
-    width = max((len(row) for row in values), default=0)
+def _starts_with_total(text: str) -> bool:
+    lowered = text.strip().lower().rstrip(":")
+    return any(lowered == p or lowered.startswith(p + " ") for p in _TOTAL_PREFIXES)
 
-    body: list[list[dict]] = []
-    for row in values[1:]:
-        padded = [str(c) for c in row] + [""] * (width - len(row))
-        cells = [
-            {"value": cell, "is_amount": _is_amount(cell)}
-            for cell in padded
-        ]
-        body.append(cells)
-    return header, body
+
+def classify_rows(values: list[list[str]]) -> list[Row]:
+    """Split values into structurally-meaningful rows.
+
+    Row kinds, applied in order:
+    - 'spacer' : entirely empty row
+    - 'totals' : first non-empty cell starts with Total / Average / Subtotal / Sum
+    - 'title'  : exactly one non-empty, non-numeric cell (typically merged header bar)
+    - 'header' : first remaining row with no amount-shaped cells
+    - 'data'   : everything else
+
+    Title and header are each emitted at most once.
+    """
+    if not values:
+        return []
+
+    width = max((len(row) for row in values), default=0)
+    out: list[Row] = []
+    title_emitted = False
+    header_emitted = False
+
+    for raw in values:
+        cells_raw = [str(c) if c is not None else "" for c in raw]
+        cells_raw += [""] * (width - len(cells_raw))
+        non_empty = [c for c in cells_raw if c.strip()]
+        cells: list[Cell] = [{"value": c, "is_amount": _is_amount(c)} for c in cells_raw]
+
+        if not non_empty:
+            kind: RowKind = "spacer"
+        elif _starts_with_total(non_empty[0]):
+            kind = "totals"
+        elif (
+            not title_emitted
+            and not header_emitted
+            and len(non_empty) == 1
+            and not _is_amount(non_empty[0])
+        ):
+            kind = "title"
+            title_emitted = True
+        elif not header_emitted and not any(c["is_amount"] for c in cells):
+            kind = "header"
+            header_emitted = True
+        else:
+            kind = "data"
+
+        out.append({"kind": kind, "cells": cells, "width": width})
+
+    return out
 
 
 def render(values: list[list[str]], theme: str = "dark_gold", title: str = "Report") -> str:
     css = _load_theme(theme)
-    header, body = normalize_rows(values)
+    rows = classify_rows(values)
+    width = rows[0]["width"] if rows else 0
     template = _env.get_template("report.html.j2")
-    return template.render(title=title, css=css, header=header, body=body)
+    return template.render(title=title, css=css, rows=rows, width=width)

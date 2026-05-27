@@ -1,36 +1,26 @@
 name: Snapshot
 
 on:
-  # Manual trigger from the Actions tab with overridable inputs.
   workflow_dispatch:
     inputs:
-      spreadsheet_id:
-        description: "Google Spreadsheet ID"
+      report:
+        description: "Which report(s) to snapshot"
         required: false
-        default: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
-      gid:
-        description: "Sheet tab gid"
-        required: false
-        default: "170384010"
-      range:
-        description: "A1 range"
-        required: false
-        default: "B1:J25"
-      title:
-        description: "Report title / Slack comment"
-        required: false
-        default: "Snapshot"
+        default: "all"
+        type: choice
+        options:
+          - all
+          - daily
+          - monthly
       output:
-        description: "Where to send the PNG"
+        description: "Send to Slack or save as a workflow artifact"
         required: false
         default: "slack"
         type: choice
         options:
           - slack
           - file
-
-  # 9:00 America/New_York during DST (= 13:00 UTC), Mon-Fri.
-  # GitHub uses UTC. Note: scheduled workflows can be delayed up to ~15 min on free tier.
+  # 13:00 UTC = 9 AM ET during DST. GitHub schedules in UTC and may delay up to ~15 min.
   schedule:
     - cron: "0 13 * * 1-5"
 
@@ -40,7 +30,7 @@ permissions:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -66,22 +56,59 @@ jobs:
           printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
-      - name: Run snapshot
+      - name: Run snapshots
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-          SPREADSHEET_ID: ${{ inputs.spreadsheet_id || '12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k' }}
-          GID: ${{ inputs.gid || '170384010' }}
-          RANGE: ${{ inputs.range || 'B1:J25' }}
-          TITLE: ${{ inputs.title || 'Snapshot' }}
+          SPREADSHEET_ID: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
+          GID: "170384010"
+          REPORT_FILTER: ${{ inputs.report || 'all' }}
           OUTPUT: ${{ inputs.output || 'slack' }}
-        run: uv run python scripts/snapshot.py
+        run: |
+          set -euo pipefail
 
-      - name: Upload PNG as workflow artifact
+          # Define the report set inline. Add more by appending {"key","title","range"} lines.
+          reports='[
+            {"key": "daily",   "title": "Daily Sales Report",   "range": "B1:E25"},
+            {"key": "monthly", "title": "Monthly Sales Report", "range": "F1:J25"}
+          ]'
+
+          echo "$reports" | jq -c '.[]' | while read -r report; do
+            key=$(echo   "$report" | jq -r '.key')
+            title=$(echo "$report" | jq -r '.title')
+            range=$(echo "$report" | jq -r '.range')
+
+            if [ "$REPORT_FILTER" != "all" ] && [ "$REPORT_FILTER" != "$key" ]; then
+              echo "::notice::Skipping $key (filter=$REPORT_FILTER)"
+              continue
+            fi
+
+            echo "::group::$title ($range)"
+            out_path="snapshot-${key}.png"
+            if [ "$OUTPUT" = "file" ]; then
+              uv run python scripts/snapshot.py \
+                --spreadsheet-id "$SPREADSHEET_ID" \
+                --gid "$GID" \
+                --range "$range" \
+                --title "$title" \
+                --output file \
+                --out-path "$out_path"
+            else
+              uv run python scripts/snapshot.py \
+                --spreadsheet-id "$SPREADSHEET_ID" \
+                --gid "$GID" \
+                --range "$range" \
+                --title "$title" \
+                --output slack
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Upload PNGs as workflow artifact
         if: ${{ inputs.output == 'file' }}
         uses: actions/upload-artifact@v4
         with:
-          name: snapshot-png
-          path: snapshot.png
+          name: snapshots
+          path: snapshot-*.png
           if-no-files-found: error
           retention-days: 7
