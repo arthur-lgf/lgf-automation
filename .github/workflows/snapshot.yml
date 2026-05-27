@@ -3,15 +3,6 @@ name: Snapshot
 on:
   workflow_dispatch:
     inputs:
-      report:
-        description: "Which report(s) to snapshot"
-        required: false
-        default: "all"
-        type: choice
-        options:
-          - all
-          - daily
-          - monthly
       output:
         description: "Send to Slack or save as a workflow artifact"
         required: false
@@ -29,8 +20,19 @@ permissions:
 
 jobs:
   snapshot:
+    name: ${{ matrix.report.title }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        report:
+          - key: daily
+            title: "Daily Sales Report"
+            range: "B1:E25"
+          - key: monthly
+            title: "Monthly Sales Report"
+            range: "G1:J25"
     steps:
       - uses: actions/checkout@v4
 
@@ -56,59 +58,39 @@ jobs:
           printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
-      - name: Run snapshots
+      - name: Run ${{ matrix.report.title }} snapshot
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
           SPREADSHEET_ID: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
           GID: "170384010"
-          REPORT_FILTER: ${{ inputs.report || 'all' }}
           OUTPUT: ${{ inputs.output || 'slack' }}
+          REPORT_RANGE: ${{ matrix.report.range }}
+          REPORT_TITLE: ${{ matrix.report.title }}
+          REPORT_KEY: ${{ matrix.report.key }}
         run: |
-          set -euo pipefail
+          if [ "$OUTPUT" = "file" ]; then
+            uv run python scripts/snapshot.py \
+              --spreadsheet-id "$SPREADSHEET_ID" \
+              --gid "$GID" \
+              --range "$REPORT_RANGE" \
+              --title "$REPORT_TITLE" \
+              --output file \
+              --out-path "snapshot-${REPORT_KEY}.png"
+          else
+            uv run python scripts/snapshot.py \
+              --spreadsheet-id "$SPREADSHEET_ID" \
+              --gid "$GID" \
+              --range "$REPORT_RANGE" \
+              --title "$REPORT_TITLE" \
+              --output slack
+          fi
 
-          # Define the report set inline. Add more by appending {"key","title","range"} lines.
-          reports='[
-            {"key": "daily",   "title": "Daily Sales Report",   "range": "B1:E25"},
-            {"key": "monthly", "title": "Monthly Sales Report", "range": "F1:J25"}
-          ]'
-
-          echo "$reports" | jq -c '.[]' | while read -r report; do
-            key=$(echo   "$report" | jq -r '.key')
-            title=$(echo "$report" | jq -r '.title')
-            range=$(echo "$report" | jq -r '.range')
-
-            if [ "$REPORT_FILTER" != "all" ] && [ "$REPORT_FILTER" != "$key" ]; then
-              echo "::notice::Skipping $key (filter=$REPORT_FILTER)"
-              continue
-            fi
-
-            echo "::group::$title ($range)"
-            out_path="snapshot-${key}.png"
-            if [ "$OUTPUT" = "file" ]; then
-              uv run python scripts/snapshot.py \
-                --spreadsheet-id "$SPREADSHEET_ID" \
-                --gid "$GID" \
-                --range "$range" \
-                --title "$title" \
-                --output file \
-                --out-path "$out_path"
-            else
-              uv run python scripts/snapshot.py \
-                --spreadsheet-id "$SPREADSHEET_ID" \
-                --gid "$GID" \
-                --range "$range" \
-                --title "$title" \
-                --output slack
-            fi
-            echo "::endgroup::"
-          done
-
-      - name: Upload PNGs as workflow artifact
+      - name: Upload PNG as workflow artifact
         if: ${{ inputs.output == 'file' }}
         uses: actions/upload-artifact@v4
         with:
-          name: snapshots
-          path: snapshot-*.png
+          name: snapshot-${{ matrix.report.key }}
+          path: snapshot-${{ matrix.report.key }}.png
           if-no-files-found: error
           retention-days: 7
