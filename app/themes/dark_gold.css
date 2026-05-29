@@ -90,6 +90,18 @@ table.report tr.totals-row td {
   border-bottom: 1px solid #d4b54c;
   font-size: 16px;
 }
+table.report tr.totals-row td.totals-label-cell {
+  text-align: right;
+  padding-right: 12px;
+}
+table.report tr.totals-row td.totals-value-cell {
+  text-align: left;
+  padding-left: 12px;
+  color: #111827;
+}
+table.report tr.totals-row td.totals-merged {
+  text-align: center;
+}
 table.report tr.totals-row td.amount {
   color: #111827;
   text-align: right;

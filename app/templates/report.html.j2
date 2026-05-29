@@ -24,10 +24,31 @@
           {% endfor %}
       </tr>
         {% elif row.kind == "totals" %}
+      {% set label_w = (row.width // 2) if row.width >= 2 else row.width %}
+      {% set value_w = (row.width - label_w) if row.width >= 2 else 0 %}
       <tr class="totals-row">
-          {% for cell in row.cells %}
-        <td class="{{ 'amount' if cell.is_amount else 'text' }}">{{ cell.value }}</td>
-          {% endfor %}
+        {% if value_w > 0 %}
+        <td colspan="{{ label_w }}" class="totals-label-cell">
+          {%- set lparts = [] -%}
+          {%- for cell in row.cells -%}
+            {%- if cell.value and not cell.is_amount -%}{% set _ = lparts.append(cell.value) %}{%- endif -%}
+          {%- endfor -%}
+          {{ lparts | join(' ') }}
+        </td>
+        <td colspan="{{ value_w }}" class="totals-value-cell">
+          {%- set vparts = [] -%}
+          {%- for cell in row.cells -%}
+            {%- if cell.value and cell.is_amount -%}{% set _ = vparts.append(cell.value) %}{%- endif -%}
+          {%- endfor -%}
+          {{ vparts | join(' ') }}
+        </td>
+        {% else %}
+        <td colspan="{{ row.width }}" class="totals-merged">
+          {%- for cell in row.cells -%}
+            {%- if cell.value -%}{{ cell.value }} {%- endif -%}
+          {%- endfor -%}
+        </td>
+        {% endif %}
       </tr>
         {% elif row.kind == "spacer" %}
       <tr class="spacer-row"><td colspan="{{ row.width }}">&nbsp;</td></tr>

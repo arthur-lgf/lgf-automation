@@ -95,6 +95,17 @@ table.report tr.totals-row td {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+table.report tr.totals-row td.totals-label-cell {
+  text-align: right;
+  padding-right: 14px;
+}
+table.report tr.totals-row td.totals-value-cell {
+  text-align: left;
+  padding-left: 14px;
+}
+table.report tr.totals-row td.totals-merged {
+  text-align: center;
+}
 table.report tr.totals-row td.amount {
   color: #fbbf24;
   font-size: 19pt;
