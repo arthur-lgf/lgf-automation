@@ -11,81 +11,16 @@ on:
         options:
           - slack
           - file
-  # Schedule fires at both EDT and EST candidate times for 12:30 PM and 5 PM ET.
-  # The preflight job below checks the live ET wall clock against a +/-35 min
-  # window around each target, so only the runs that actually land near
-  # 12:30 PM or 5 PM ET proceed to the snapshot matrix.
-  #
-  #   12:30 PM ET = 16:30 UTC (EDT) | 17:30 UTC (EST)
-  #   5:00  PM ET = 21:05 UTC (EDT) | 22:05 UTC (EST)
-  # (The 5 PM crons fire at :05 past the hour to dodge GitHub's on-the-hour
-  # scheduler-load spike, which is the main source of long delays.)
-  schedule:
-    - cron: "30 16 * * *"
-    - cron: "30 17 * * *"
-    - cron: "5 21 * * *"
-    - cron: "5 22 * * *"
+  # Scheduling is now driven externally by cron-job.org, which calls the GitHub
+  # workflow_dispatch REST endpoint at the desired ET wall-clock times. This
+  # workflow no longer owns any cron schedule or ET-hour gating logic.
+  # See docs/SCHEDULING.md for the external trigger setup and timing details.
 
 permissions:
   contents: read
 
 jobs:
-  preflight:
-    name: ET-hour preflight
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.guard.outputs.should_run }}
-    steps:
-      - id: guard
-        run: |
-          set -euo pipefail
-
-          # Manual triggers (workflow_dispatch) and reruns (run_attempt > 1) always proceed.
-          # The ET-time window only gates first-attempt scheduled runs.
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Non-schedule trigger (${{ github.event_name }}) — proceeding."
-            exit 0
-          fi
-
-          if [ "${{ github.run_attempt }}" != "1" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Manual rerun (attempt ${{ github.run_attempt }}) of a scheduled run — proceeding."
-            exit 0
-          fi
-
-          et_clock=$(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')
-          et_h=$(TZ=America/New_York date +%H)
-          et_m=$(TZ=America/New_York date +%M)
-          et_total=$((10#$et_h * 60 + 10#$et_m))
-
-          # Targets, in minutes since ET midnight
-          target_a=750    # 12:30 PM ET
-          target_b=1020   # 5:00  PM ET
-          window=35       # +/- 35 min tolerance for GitHub scheduler delays
-
-          run=false
-          for target in $target_a $target_b; do
-            diff=$(( et_total - target ))
-            abs=${diff#-}
-            if [ "$abs" -le "$window" ]; then
-              run=true
-              matched=$target
-              break
-            fi
-          done
-
-          if [ "$run" = "true" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::ET wall clock $et_clock is within +/-$window min of target ($matched min ET) — proceeding."
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::ET wall clock $et_clock is outside the 12:30 PM and 5 PM target windows — skipping snapshots."
-          fi
-
   snapshot:
-    needs: preflight
-    if: needs.preflight.outputs.should_run == 'true'
     name: ${{ matrix.report.title }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
