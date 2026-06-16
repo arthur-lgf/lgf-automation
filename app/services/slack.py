@@ -41,3 +41,25 @@ def upload_png(
         "file_id": file_info.get("id"),
         "permalink": file_info.get("permalink"),
     }
+
+
+def post_message(
+    *,
+    token: Optional[str],
+    channel: Optional[str],
+    text: str,
+) -> dict:
+    """Post a plain text message (chat.postMessage). Requires the chat:write scope."""
+    if not token:
+        raise SlackUploadError("SLACK_BOT_TOKEN is not configured.")
+    if not channel:
+        raise SlackUploadError("SLACK_CHANNEL_ID is not configured.")
+
+    client = WebClient(token=token)
+    try:
+        response = client.chat_postMessage(channel=channel, text=text)
+    except SlackApiError as exc:
+        detail = exc.response.get("error", str(exc)) if exc.response else str(exc)
+        raise SlackUploadError(f"Slack message failed: {detail}") from exc
+
+    return {"ok": bool(response.get("ok", False)), "ts": response.get("ts")}

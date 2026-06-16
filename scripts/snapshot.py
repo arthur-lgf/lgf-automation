@@ -19,10 +19,21 @@ import sys
 from pathlib import Path
 
 from app.config import get_settings
-from app.services.renderer import render
+from app.services.renderer import classify_rows, has_data_rows, render
 from app.services.screenshot import ScreenshotError, snapshot_html
 from app.services.sheets import SheetAccessError, fetch_values
-from app.services.slack import SlackUploadError, upload_png
+from app.services.slack import SlackUploadError, post_message, upload_png
+
+
+def _no_data_text(values: list[list[str]], title: str) -> str:
+    """Build the 'no sales' notice, including the report's date label if present."""
+    header = next(
+        (r for r in classify_rows(values, only_ranked=False) if r["kind"] == "header"),
+        None,
+    )
+    label = header["cells"][1]["value"].strip() if header and len(header["cells"]) > 1 else ""
+    suffix = f" ({label})" if label else ""
+    return f"No sales to report for {title}{suffix}."
 
 
 def _parse_args() -> argparse.Namespace:
@@ -99,6 +110,23 @@ async def _run(args: argparse.Namespace) -> int:
         return 2
 
     print(f"Fetched {len(values)} rows from {args.spreadsheet_id} ({args.range_a1}).")
+
+    # No ranked sales -> send a short text notice instead of an empty
+    # title/header-only image. (Slack output only; --output file still renders.)
+    if args.output == "slack" and not has_data_rows(values, only_ranked=args.only_ranked):
+        text = _no_data_text(values, args.title)
+        try:
+            post_message(
+                token=settings.slack_bot_token,
+                channel=settings.slack_channel_id,
+                text=text,
+            )
+        except SlackUploadError as exc:
+            print(f"::error::slack_post_failed: {exc}", file=sys.stderr)
+            return 4
+        print(f"No ranked sales; posted text instead of image: {text}")
+        return 0
+
     html = render(values, theme=args.theme, title=args.title, only_ranked=args.only_ranked)
 
     try:
