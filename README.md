@@ -43,10 +43,11 @@ If no deals were approved that day it posts nothing (the endpoint returns
 
 1. **Share the APPTRACK 3.0 sheet** with the service account
    `lgf-bot@lgf-automation.iam.gserviceaccount.com` (Viewer).
-2. **Pick the Slack channel** and invite the LGF bot. To post somewhere other
-   than `SLACK_CHANNEL_ID`, set `APPROVALS_CHANNEL_ID` (a GitHub Actions secret
-   for the scheduled run, or in `.env` for local). If unset it falls back to
-   `SLACK_CHANNEL_ID`.
+2. **Pick the Slack channel and bot.** Invite the posting bot to the channel.
+   To post somewhere other than `SLACK_CHANNEL_ID`, set `APPROVALS_CHANNEL_ID`;
+   to post with a **different bot** than the snapshots, set
+   `APPROVALS_SLACK_BOT_TOKEN` (else it falls back to `SLACK_BOT_TOKEN`). Both
+   are GitHub Actions secrets for the scheduled run, or `.env` keys for local.
 
 ### Production: scheduled via GitHub Actions (same as the snapshot reports)
 

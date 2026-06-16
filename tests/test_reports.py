@@ -31,19 +31,19 @@ def test_build_matrix_filters_to_target_date():
     assert report.total == 23000.0
     assert report.matrix[0] == ["APPROVALS REPORT — 6/15/2026"]
     assert report.matrix[1] == approvals_service.HEADER
-    # First data row: rank, client, bank, rep, date approved, invoice sent, amount
-    assert report.matrix[2] == ["1", "Jason Delegado", "Chase", "Bikram", "6/15/26", "", "$11,000.0"]
-    assert report.matrix[3][1] == "Salvador Mexicano"
+    # First data row: client, bank, rep, date approved, invoice sent, amount
+    assert report.matrix[2] == ["Jason Delegado", "Chase", "Bikram", "6/15/26", "", "$11,000.0"]
+    assert report.matrix[3][0] == "Salvador Mexicano"
     # Totals strip
-    assert report.matrix[-2] == ["TOTAL APPROVED:", "", "", "", "", "", "2"]
-    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "", "$23,000.0"]
+    assert report.matrix[-2] == ["TOTAL APPROVED:", "", "", "", "", "2"]
+    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$23,000.0"]
 
 
 def test_build_matrix_no_rows_for_other_day():
     report = approvals_service.build_report_matrix(_rows(), date(2000, 1, 1))
     assert report.count == 0
     assert report.total == 0.0
-    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "", "$0.0"]
+    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$0.0"]
 
 
 def test_parse_date_tolerates_year_widths():
@@ -66,8 +66,8 @@ def test_build_matrix_malformed_amount_counts_but_totals_zero():
     report = approvals_service.build_report_matrix(rows, date(2026, 6, 20))
     assert report.count == 1
     assert report.total == 0.0
-    assert report.matrix[2][6] == "$0.0"  # unparseable amount -> $0.0
-    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "", "$0.0"]
+    assert report.matrix[2][5] == "$0.0"  # unparseable amount -> $0.0 (last col)
+    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$0.0"]
 
 
 def test_approvals_cols_map_validates_length_and_ints():
@@ -136,6 +136,22 @@ def test_approvals_slack_output(client: TestClient):
     assert body["posted"] is True
     assert body["count"] == 2
     assert body["file_id"] == "F999"
+
+
+def test_approvals_uses_separate_bot_token_when_set(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("APPROVALS_SLACK_BOT_TOKEN", "xoxb-approvals-only")
+    captured: dict = {}
+
+    def capture_upload(png_bytes: bytes, **kwargs):
+        captured.update(kwargs)
+        return {"ok": True, "file_id": "F1", "permalink": "p"}
+
+    monkeypatch.setattr(slack_service, "upload_png", capture_upload)
+    response = client.get("/reports/approvals", params={"output": "slack", "date": TARGET})
+    assert response.status_code == 200
+    assert captured["token"] == "xoxb-approvals-only"  # override beats SLACK_BOT_TOKEN
 
 
 def test_approvals_no_rows_does_not_post(client: TestClient):

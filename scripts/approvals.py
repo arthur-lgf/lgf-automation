@@ -115,10 +115,11 @@ async def _run(args: argparse.Namespace) -> int:
         return 0
 
     channel = settings.approvals_channel_id or settings.slack_channel_id
+    token = settings.approvals_slack_bot_token or settings.slack_bot_token
     try:
         result = upload_png(
             png_bytes,
-            token=settings.slack_bot_token,
+            token=token,
             channel=channel,
             filename="approvals.png",
             initial_comment=f"APPROVALS REPORT — {target_str}",

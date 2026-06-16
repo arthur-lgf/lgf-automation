@@ -60,6 +60,9 @@ jobs:
           # Optional: a dedicated channel for approvals. If this secret is unset,
           # the report falls back to SLACK_CHANNEL_ID.
           APPROVALS_CHANNEL_ID: ${{ secrets.APPROVALS_CHANNEL_ID }}
+          # Optional: a dedicated bot for approvals. If unset, falls back to
+          # SLACK_BOT_TOKEN. The bot must be a member of APPROVALS_CHANNEL_ID.
+          APPROVALS_SLACK_BOT_TOKEN: ${{ secrets.APPROVALS_SLACK_BOT_TOKEN }}
           OUTPUT: ${{ inputs.output || 'slack' }}
           APPROVALS_DATE: ${{ inputs.date }}
         run: |
