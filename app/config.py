@@ -41,10 +41,15 @@ class Settings(BaseSettings):
     # round-trip. Blank it to fall back to gid resolution.
     approvals_sheet_name: str = Field(default="APPS", alias="APPROVALS_SHEET_NAME")
     approvals_range: str = Field(default="A1:L", alias="APPROVALS_RANGE")
-    # Channel the report is posted to (the LGF bot must be a member). Falls
+    # Channel the report is posted to (the bot must be a member). Falls
     # back to SLACK_CHANNEL_ID when unset.
     approvals_channel_id: Optional[str] = Field(
         default=None, alias="APPROVALS_CHANNEL_ID"
+    )
+    # Optional separate Slack bot for the approvals report (so it doesn't share
+    # the snapshot bot). Falls back to SLACK_BOT_TOKEN when unset.
+    approvals_slack_bot_token: Optional[str] = Field(
+        default=None, alias="APPROVALS_SLACK_BOT_TOKEN"
     )
     report_tz: str = Field(default="America/New_York", alias="REPORT_TZ")
     # 0-based column indices within the A1:L fetch, in the order:

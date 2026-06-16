@@ -27,7 +27,7 @@ DEFAULT_COLS: dict[str, int] = {
 
 # Two-word headers carry a newline so the dark_green theme (white-space: pre-line)
 # breaks them onto a second line.
-HEADER = ["RANK", "CLIENT", "BANK", "REP", "DATE\nAPPROVED", "INVOICE\nSENT", "AMOUNT"]
+HEADER = ["CLIENT", "BANK", "REP", "DATE\nAPPROVED", "INVOICE\nSENT", "AMOUNT"]
 
 # The Date-Approved column displays a 2-digit year (e.g. "8/29/25") while other
 # date columns use 4-digit, so accept both. ISO is allowed for robustness.
@@ -120,12 +120,11 @@ def build_report_matrix(
     matrix: list[list[str]] = [[title_text], list(HEADER)]
 
     total = 0.0
-    for rank, (row, approved) in enumerate(matched, start=1):
+    for row, approved in matched:
         amount_val = parse_amount(_cell(row, cols["amount"]))
         total += amount_val
         matrix.append(
             [
-                str(rank),
                 _cell(row, cols["client"]),
                 _cell(row, cols["bank"]).replace(" ", "\n"),  # break multi-word banks
                 _cell(row, cols["rep"]),
@@ -136,9 +135,9 @@ def build_report_matrix(
         )
 
     count = len(matched)
-    matrix.append(["TOTAL APPROVED:", "", "", "", "", "", str(count)])
+    matrix.append(["TOTAL APPROVED:", "", "", "", "", str(count)])
     matrix.append(
-        ["TOTAL AMOUNT APPROVED:", "", "", "", "", "", f"${total:,.1f}"]
+        ["TOTAL AMOUNT APPROVED:", "", "", "", "", f"${total:,.1f}"]
     )
 
     return ApprovalsReport(

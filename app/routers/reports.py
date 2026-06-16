@@ -130,12 +130,13 @@ async def approvals_report(
             headers={"Content-Disposition": 'inline; filename="approvals.png"'},
         )
 
-    # 5) Upload to Slack (LGF bot must be a member of the target channel).
+    # 5) Upload to Slack (the bot must be a member of the target channel).
     target_channel = channel or settings.approvals_channel_id or settings.slack_channel_id
+    target_token = settings.approvals_slack_bot_token or settings.slack_bot_token
     try:
         result = slack_service.upload_png(
             png_bytes,
-            token=settings.slack_bot_token,
+            token=target_token,
             channel=target_channel,
             filename="approvals.png",
             initial_comment=f"APPROVALS REPORT — {target_str}",
