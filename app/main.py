@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import snapshots
+from app.routers import reports, snapshots
 
 
 def create_app() -> FastAPI:
@@ -10,6 +10,7 @@ def create_app() -> FastAPI:
         description="Google Sheets snapshot service.",
     )
     app.include_router(snapshots.router)
+    app.include_router(reports.router)
 
     @app.get("/healthz", tags=["meta"])
     def healthz() -> dict:

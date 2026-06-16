@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from datetime import datetime
+from typing import Annotated, Literal, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
+
+from app.config import Settings, get_settings
+from app.services import approvals as approvals_service
+from app.services import screenshot as screenshot_service
+from app.services import sheets as sheets_service
+from app.services import slack as slack_service
+from app.services.renderer import ThemeNotFoundError, render
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def _settings_dep() -> Settings:
+    return get_settings()
+
+
+@router.get("/approvals")
+async def approvals_report(
+    settings: Annotated[Settings, Depends(_settings_dep)],
+    output: Literal["image", "slack"] = Query(
+        default="slack", description="'slack' posts the PNG; 'image' returns it."
+    ),
+    date: Optional[str] = Query(
+        default=None, description="M/D/YYYY override; default = today in REPORT_TZ."
+    ),
+    spreadsheet_id: Optional[str] = Query(default=None),
+    gid: Optional[int] = Query(default=None),
+    sheet_name: Optional[str] = Query(default=None),
+    range: Optional[str] = Query(default=None),
+    theme: str = Query(default="dark_green"),
+    channel: Optional[str] = Query(default=None),
+) -> Response:
+    # 1) Resolve the target date (explicit override, else today in the report TZ).
+    if date:
+        target = approvals_service.parse_date(date)
+        if target is None:
+            raise HTTPException(
+                status_code=422, detail=f"Invalid date '{date}'; use M/D/YYYY."
+            )
+    else:
+        try:
+            tz = ZoneInfo(settings.report_tz)
+        except ZoneInfoNotFoundError as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Time zone '{settings.report_tz}' unavailable ({exc}); "
+                    "install the 'tzdata' package or pass ?date=."
+                ),
+            )
+        target = datetime.now(tz).date()
+
+    spreadsheet = spreadsheet_id or settings.approvals_spreadsheet_id
+    resolved_gid = gid if gid is not None else settings.approvals_gid
+    resolved_sheet = sheet_name or settings.approvals_sheet_name
+    range_a1 = range or settings.approvals_range
+
+    # Resolve the column map early so a bad APPROVALS_COLS fails with a clear
+    # message instead of an opaque KeyError deep in matrix building.
+    try:
+        cols = settings.approvals_cols_map()
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=500, content={"error": "config", "detail": str(exc)}
+        )
+
+    # 2) Pull the APPS rows. fetch_values is synchronous (blocking HTTP); offload
+    # it so the unbounded APPS pull doesn't stall the event loop.
+    try:
+        values = await asyncio.to_thread(
+            sheets_service.fetch_values,
+            spreadsheet_id=spreadsheet,
+            range_a1=range_a1,
+            sheet_name=resolved_sheet,
+            gid=resolved_gid,
+            source="api",
+            credentials_path=settings.google_application_credentials,
+        )
+    except sheets_service.SheetAccessError as exc:
+        return JSONResponse(
+            status_code=502, content={"error": "sheet_access", "detail": str(exc)}
+        )
+
+    # 3) Filter to today's approvals and shape the renderer matrix.
+    report = approvals_service.build_report_matrix(values, target, cols=cols)
+
+    target_str = approvals_service.format_date_us(target)
+
+    # Nothing approved today: don't post an empty report; just report the fact.
+    if report.count == 0 and output == "slack":
+        logger.info("No approvals for %s; nothing posted.", target_str)
+        return JSONResponse(
+            status_code=200,
+            content={"posted": False, "reason": f"no approvals for {target_str}"},
+        )
+
+    # 4) Render -> screenshot.
+    try:
+        html = render(report.matrix, theme=theme, title="APPROVALS REPORT")
+    except ThemeNotFoundError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    try:
+        png_bytes = await screenshot_service.snapshot_html(
+            html,
+            viewport_width=settings.viewport_width,
+            viewport_height=settings.viewport_height,
+        )
+    except screenshot_service.ScreenshotError as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "screenshot_failed", "detail": str(exc)},
+        )
+
+    if output == "image":
+        return Response(
+            content=png_bytes,
+            media_type="image/png",
+            headers={"Content-Disposition": 'inline; filename="approvals.png"'},
+        )
+
+    # 5) Upload to Slack (LGF bot must be a member of the target channel).
+    target_channel = channel or settings.approvals_channel_id or settings.slack_channel_id
+    try:
+        result = slack_service.upload_png(
+            png_bytes,
+            token=settings.slack_bot_token,
+            channel=target_channel,
+            filename="approvals.png",
+            initial_comment=f"APPROVALS REPORT — {target_str}",
+        )
+    except slack_service.SlackUploadError as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"error": "slack_upload_failed", "detail": str(exc)},
+        )
+
+    return JSONResponse(
+        status_code=200,
+        content={"posted": True, "count": report.count, **result},
+    )
