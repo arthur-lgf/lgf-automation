@@ -36,33 +36,45 @@ pipeline as `/snapshots/google-sheet` — it just filters the sheet to today's
 | `channel`   | no | Override `APPROVALS_CHANNEL_ID` for one call |
 | `spreadsheet_id` / `gid` / `sheet_name` / `range` / `theme` | no | Default from env; rarely needed |
 
-If no deals were approved that day it posts nothing and returns
-`{"posted": false, "reason": "..."}`.
+If no deals were approved that day it posts nothing (the endpoint returns
+`{"posted": false, ...}`; the scheduled job logs it and exits 0).
 
 **One-time prerequisites**
 
 1. **Share the APPTRACK 3.0 sheet** with the service account
    `lgf-bot@lgf-automation.iam.gserviceaccount.com` (Viewer).
-2. **Create / pick the Slack channel**, invite the LGF bot to it, and set its
-   channel ID as `APPROVALS_CHANNEL_ID` in `.env`.
+2. **Pick the Slack channel** and invite the LGF bot. To post somewhere other
+   than `SLACK_CHANNEL_ID`, set `APPROVALS_CHANNEL_ID` (a GitHub Actions secret
+   for the scheduled run, or in `.env` for local). If unset it falls back to
+   `SLACK_CHANNEL_ID`.
 
-**Cron (you own the scheduler).** Hit the endpoint daily at 11:00 AM ET:
+### Production: scheduled via GitHub Actions (same as the snapshot reports)
+
+There is **no hosted server** — the report runs serverless. [`scripts/approvals.py`](scripts/approvals.py)
+(same logic as the endpoint) runs inside [`.github/workflows/approvals.yml`](.github/workflows/approvals.yml)
+(`workflow_dispatch`), and **cron-job.org** calls its dispatch URL daily at
+11:00 AM `America/New_York`. Follow [docs/SCHEDULING.md](docs/SCHEDULING.md) and
+add **one** cron-job.org job (clone an existing one and change only these):
+
+- **URL:** `https://api.github.com/repos/arthur-lgf/lgf-automation/actions/workflows/approvals.yml/dispatches`
+- **Schedule:** Hour `11`, Minute `0`, Time zone `America/New_York`
+- Method `POST`, body `{"ref":"main"}`, same `Authorization: Bearer <PAT>` headers as the snapshot jobs.
+
+Uses the existing `SLACK_BOT_TOKEN`, `SLACK_CHANNEL_ID`, and
+`GOOGLE_SERVICE_ACCOUNT_JSON` Actions secrets. Trigger it by hand anytime via
+**Actions → Approvals Report → Run workflow** (optionally pass a `date`).
+
+### Local / manual run
 
 ```bash
-curl -fsS --max-time 120 "http://<host>:8000/reports/approvals?output=slack"
-```
+# CLI (what the workflow runs) — write a PNG without posting:
+uv run python scripts/approvals.py --output file --out-path approvals.png --date 6/15/2026
+# CLI — post to Slack:
+uv run python scripts/approvals.py --output slack
 
-On a UTC host, schedule it for 11 AM America/New_York (15:00 UTC in EDT / 16:00 UTC
-in EST), or run the scheduler with `TZ=America/New_York`. Example crontab (EDT):
-
-```
-0 15 * * * curl -fsS --max-time 120 "http://localhost:8000/reports/approvals?output=slack" >/dev/null
-```
-
-Dry-run before wiring cron:
-
-```bash
+# Or via the HTTP endpoint (uvicorn running locally):
 curl -s "http://localhost:8000/reports/approvals?output=image&date=6/15/2026" -o approvals.png
+curl -fsS --max-time 120 "http://localhost:8000/reports/approvals?output=slack"
 ```
 
 ## Local setup (uv)
