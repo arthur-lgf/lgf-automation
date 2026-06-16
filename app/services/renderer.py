@@ -140,6 +140,15 @@ def classify_rows(values: list[list[str]], only_ranked: bool = False) -> list[Ro
     return out
 
 
+def has_data_rows(values: list[list[str]], only_ranked: bool = False) -> bool:
+    """True if the classified report contains at least one ``data`` row.
+
+    With ``only_ranked=True`` this answers "are there any ranked sales?", which
+    callers use to decide between rendering an image and sending a text notice.
+    """
+    return any(row["kind"] == "data" for row in classify_rows(values, only_ranked=only_ranked))
+
+
 def render(
     values: list[list[str]],
     theme: str = "dark_green",

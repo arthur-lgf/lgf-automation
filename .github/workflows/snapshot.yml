@@ -28,12 +28,15 @@ jobs:
       fail-fast: false
       matrix:
         report:
+          # Ranges extended to include the totals rows (Total # of sales /
+          # Total amount / Average sale), which moved past row 25 as reps were
+          # added. only_ranked drops the per-rep helper rows in between.
           - key: daily
             title: "Daily Sales Report"
-            range: "B1:E25"
+            range: "B1:E50"
           - key: monthly
             title: "Monthly Sales Report"
-            range: "G1:J25"
+            range: "G1:J50"
     steps:
       - uses: actions/checkout@v4
 

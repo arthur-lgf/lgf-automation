@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.renderer import ThemeNotFoundError, classify_rows, render
+from app.services.renderer import ThemeNotFoundError, classify_rows, has_data_rows, render
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_values.json"
 
@@ -135,3 +135,35 @@ def test_render_dark_gold_theme_still_available():
 def test_render_unknown_theme_raises():
     with pytest.raises(ThemeNotFoundError):
         render(_values(), theme="does_not_exist")
+
+
+# --- has_data_rows: drives the "send text instead of empty image" decision ----
+
+_NO_SALES = [
+    ["", "DAILY SALES REPORT"],
+    ["Rank", "6/16/2026", "Qty", "Amount"],
+    ["Total # of sales:", "", "", "0"],
+    ["Total amount:", "", "$0.00", ""],
+]
+_HELPER_ONLY = [
+    ["", "DAILY SALES REPORT"],
+    ["Rank", "6/16/2026", "Qty", "Amount"],
+    ["", "Luis", "0", "$0.00"],
+    ["", "Bill", "0", "$0.00"],
+    ["Total # of sales:", "", "", "0"],
+]
+
+
+def test_has_data_rows_true_when_ranked_sale_present():
+    assert has_data_rows(_values(), only_ranked=True) is True
+
+
+def test_has_data_rows_false_when_only_totals():
+    assert has_data_rows(_NO_SALES, only_ranked=True) is False
+
+
+def test_has_data_rows_ignores_unranked_helper_rows():
+    # only_ranked=True drops the zero-sale helper rows -> treated as "no sales"
+    assert has_data_rows(_HELPER_ONLY, only_ranked=True) is False
+    # ...but they are still 'data' rows without the ranked filter
+    assert has_data_rows(_HELPER_ONLY, only_ranked=False) is True
