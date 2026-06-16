@@ -1,0 +1,9 @@
+[
+  ["Date Submitted", "Date Approved", "", "Status", "Client", "Fee", "Bank", "Approved", "Amount", "Paid", "Invoice Sent", "Rep"],
+  ["6/3/2025", "8/29/25", "", "Approved Not Paid Yet", "Jennifer Dorfman", "7.50%", "AMEX", "$50,000.00", "$3,750.00", "$0.00", "", "Aimee"],
+  ["6/14/2026", "6/15/26", "", "Approved Not Paid Yet", "Jason Delegado", "7.5", "Chase", "$60,000.00", "$11,000.00", "$0.00", "", "Bikram"],
+  ["6/14/2026", "6/15/2026", "", "Approved", "Salvador Mexicano", "8", "Chase", "$70,000.00", "$12,000.00", "$0.00", "6/15/2026", "Jose"],
+  ["", "", "", "", "", "", "", "", "", "", "", ""],
+  ["6/14/2026", "6/15/2026", "", "Approved", "", "8", "Provident", "$25,000.00", "$2,500.00", "$0.00", "", "Arnold"],
+  ["6/1/2026", "6/10/2026", "", "Approved", "Old Deal", "8", "BOFA", "$10,000.00", "$5,000.00", "$0.00", "", "Arnold"]
+]
