@@ -1,0 +1,73 @@
+name: Skool Dashboard Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      output:
+        description: "Send to Slack or save as a workflow artifact"
+        required: false
+        default: "slack"
+        type: choice
+        options:
+          - slack
+          - file
+  # Scheduling is driven externally by cron-job.org, which calls this workflow's
+  # workflow_dispatch REST endpoint daily (~AM America/New_York).
+  # See docs/SCHEDULING.md for the trigger setup (same PAT/cron-job.org flow as
+  # snapshot.yml; just point a new job at this workflow's /dispatches URL).
+
+permissions:
+  contents: read
+
+jobs:
+  skool:
+    name: Skool Dashboard Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: uv run playwright install --with-deps chromium
+
+      - name: Run Skool dashboard report
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          SKOOL_AUTH_TOKEN: ${{ secrets.SKOOL_AUTH_TOKEN }}
+          SKOOL_DASHBOARD_URL: ${{ secrets.SKOOL_DASHBOARD_URL }}
+          # Falls back to 'body' when the secret is unset/empty so a misconfigured
+          # run still captures something (spike-friendly) instead of an empty selector.
+          SKOOL_CAPTURE_SELECTOR: ${{ secrets.SKOOL_CAPTURE_SELECTOR || 'body' }}
+          # Optional dedicated channel for the Skool report; falls back to SLACK_CHANNEL_ID.
+          SKOOL_CHANNEL_ID: ${{ secrets.SKOOL_CHANNEL_ID }}
+          # Optional dedicated bot; falls back to SLACK_BOT_TOKEN. Bot must be in SKOOL_CHANNEL_ID.
+          SKOOL_SLACK_BOT_TOKEN: ${{ secrets.SKOOL_SLACK_BOT_TOKEN }}
+          OUTPUT: ${{ inputs.output || 'slack' }}
+        run: |
+          if [ "$OUTPUT" = "file" ]; then
+            uv run python scripts/skool.py --output file --out-path skool.png
+          else
+            uv run python scripts/skool.py --output slack
+          fi
+
+      - name: Upload PNG as workflow artifact
+        if: ${{ inputs.output == 'file' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: skool
+          path: skool.png
+          if-no-files-found: error
+          retention-days: 7
