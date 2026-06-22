@@ -75,6 +75,35 @@ class Settings(BaseSettings):
             )
         return dict(zip(keys, parts))
 
+    # --- Skool dashboard report (scripts/skool.py) -------------------------
+    # Auth token for Skool dashboard API access.
+    skool_auth_token: Optional[str] = Field(
+        default=None, alias="SKOOL_AUTH_TOKEN"
+    )
+    # URL of the Skool dashboard (e.g., https://skool.com/dashboard).
+    skool_dashboard_url: Optional[str] = Field(
+        default=None, alias="SKOOL_DASHBOARD_URL"
+    )
+    # CSS selector for capturing the dashboard panel (defaults to "body" for
+    # spike-friendly dry runs; narrow to dashboard selector once confirmed).
+    skool_capture_selector: str = Field(
+        default="body", alias="SKOOL_CAPTURE_SELECTOR"
+    )
+    # Cookie domain for Skool authentication.
+    skool_cookie_domain: str = Field(
+        default=".skool.com", alias="SKOOL_COOKIE_DOMAIN"
+    )
+    # Slack channel to post the Skool snapshot to. Falls back to
+    # SLACK_CHANNEL_ID when unset.
+    skool_channel_id: Optional[str] = Field(
+        default=None, alias="SKOOL_CHANNEL_ID"
+    )
+    # Optional separate Slack bot for the Skool snapshot (so it doesn't share
+    # the snapshot bot). Falls back to SLACK_BOT_TOKEN when unset.
+    skool_slack_bot_token: Optional[str] = Field(
+        default=None, alias="SKOOL_SLACK_BOT_TOKEN"
+    )
+
 
 def get_settings() -> Settings:
     return Settings()
