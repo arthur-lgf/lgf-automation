@@ -76,7 +76,7 @@ class Settings(BaseSettings):
         return dict(zip(keys, parts))
 
     # --- Skool dashboard report (scripts/skool.py) -------------------------
-    # Auth token for Skool dashboard API access.
+    # Skool session 'auth_token' cookie value, injected into the browser context (Skool exposes no API).
     skool_auth_token: Optional[str] = Field(
         default=None, alias="SKOOL_AUTH_TOKEN"
     )

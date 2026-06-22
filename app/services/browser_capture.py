@@ -23,15 +23,12 @@ async def _read_kpis(page, kpi_selectors: dict[str, str] | None) -> dict[str, st
     if not kpi_selectors:
         return {}
     results: dict[str, str] = {}
-    try:
-        for name, sel in kpi_selectors.items():
-            try:
-                text = (await page.locator(sel).inner_text()).strip()
-                results[name] = text
-            except Exception:
-                pass  # skip this key and continue
-    except Exception:
-        pass  # return whatever was collected
+    for name, sel in kpi_selectors.items():
+        try:
+            text = (await page.locator(sel).inner_text()).strip()
+            results[name] = text
+        except Exception:
+            pass  # skip this key and continue
     return results
 
 
