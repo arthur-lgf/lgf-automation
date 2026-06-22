@@ -31,8 +31,19 @@ async def approvals_report(
     output: Literal["image", "slack"] = Query(
         default="slack", description="'slack' posts the PNG; 'image' returns it."
     ),
+    period: Literal["today", "yesterday", "last-week"] = Query(
+        default="today",
+        description="Named window used when no date/start/end given. "
+        "'last-week' = most recent completed Monday–Sunday.",
+    ),
     date: Optional[str] = Query(
-        default=None, description="M/D/YYYY override; default = today in REPORT_TZ."
+        default=None, description="M/D/YYYY single-day override."
+    ),
+    start: Optional[str] = Query(
+        default=None, description="M/D/YYYY range start (with end)."
+    ),
+    end: Optional[str] = Query(
+        default=None, description="M/D/YYYY range end (with start)."
     ),
     spreadsheet_id: Optional[str] = Query(default=None),
     gid: Optional[int] = Query(default=None),
@@ -41,13 +52,27 @@ async def approvals_report(
     theme: str = Query(default="dark_green"),
     channel: Optional[str] = Query(default=None),
 ) -> Response:
-    # 1) Resolve the target date (explicit override, else today in the report TZ).
-    if date:
+    # 1) Resolve the report window. Precedence: explicit start+end range >
+    # explicit single date > named period (relative to today in the report TZ).
+    weekly = False
+    if start or end:
+        if not (start and end):
+            raise HTTPException(
+                status_code=422, detail="Pass both 'start' and 'end' for a range."
+            )
+        win_start = approvals_service.parse_date(start)
+        win_end = approvals_service.parse_date(end)
+        if win_start is None or win_end is None:
+            raise HTTPException(
+                status_code=422, detail="Invalid start/end; use M/D/YYYY."
+            )
+    elif date:
         target = approvals_service.parse_date(date)
         if target is None:
             raise HTTPException(
                 status_code=422, detail=f"Invalid date '{date}'; use M/D/YYYY."
             )
+        win_start = win_end = target
     else:
         try:
             tz = ZoneInfo(settings.report_tz)
@@ -59,7 +84,9 @@ async def approvals_report(
                     "install the 'tzdata' package or pass ?date=."
                 ),
             )
-        target = datetime.now(tz).date()
+        today = datetime.now(tz).date()
+        win_start, win_end = approvals_service.resolve_period(period, today)
+        weekly = period == "last-week"
 
     spreadsheet = spreadsheet_id or settings.approvals_spreadsheet_id
     resolved_gid = gid if gid is not None else settings.approvals_gid
@@ -92,22 +119,23 @@ async def approvals_report(
             status_code=502, content={"error": "sheet_access", "detail": str(exc)}
         )
 
-    # 3) Filter to today's approvals and shape the renderer matrix.
-    report = approvals_service.build_report_matrix(values, target, cols=cols)
+    # 3) Filter to the window's approvals and shape the renderer matrix.
+    caption = approvals_service.caption_for(win_start, win_end, weekly=weekly)
+    report = approvals_service.build_report_matrix(
+        values, win_start, win_end, cols=cols, title=caption
+    )
 
-    target_str = approvals_service.format_date_us(target)
-
-    # Nothing approved today: don't post an empty report; just report the fact.
+    # Nothing approved in the window: don't post an empty report; report the fact.
     if report.count == 0 and output == "slack":
-        logger.info("No approvals for %s; nothing posted.", target_str)
+        logger.info("No approvals for %s; nothing posted.", caption)
         return JSONResponse(
             status_code=200,
-            content={"posted": False, "reason": f"no approvals for {target_str}"},
+            content={"posted": False, "reason": f"no approvals for {caption}"},
         )
 
     # 4) Render -> screenshot.
     try:
-        html = render(report.matrix, theme=theme, title="APPROVALS REPORT")
+        html = render(report.matrix, theme=theme, title=caption)
     except ThemeNotFoundError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -139,7 +167,7 @@ async def approvals_report(
             token=target_token,
             channel=target_channel,
             filename="approvals.png",
-            initial_comment=f"APPROVALS REPORT — {target_str}",
+            initial_comment=caption,
         )
     except slack_service.SlackUploadError as exc:
         return JSONResponse(
