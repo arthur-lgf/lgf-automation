@@ -167,7 +167,7 @@ def test_upload_pngs_posts_one_message_with_many_files(monkeypatch: pytest.Monke
     captured: dict = {}
 
     class FakeClient:
-        def __init__(self, token=None):
+        def __init__(self, token=None, **kwargs):
             captured["token"] = token
 
         def files_upload_v2(self, **kwargs):
