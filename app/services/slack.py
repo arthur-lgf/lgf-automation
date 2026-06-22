@@ -43,6 +43,51 @@ def upload_png(
     }
 
 
+def upload_pngs(
+    images: list[tuple[bytes, str]],
+    *,
+    token: Optional[str],
+    channel: Optional[str],
+    initial_comment: Optional[str] = None,
+) -> dict:
+    """Upload several PNGs as a SINGLE Slack message (one post, many images).
+
+    ``images`` is a list of ``(png_bytes, filename)`` in display order.
+    files_upload_v2 with ``file_uploads`` + a single ``channel`` completes the
+    upload once, so Slack renders them as one message / gallery.
+    """
+    if not token:
+        raise SlackUploadError("SLACK_BOT_TOKEN is not configured.")
+    if not channel:
+        raise SlackUploadError("SLACK_CHANNEL_ID is not configured.")
+    if not images:
+        raise SlackUploadError("No images to upload.")
+
+    client = WebClient(token=token)
+    file_uploads = [
+        {"content": png, "filename": filename, "title": filename}
+        for png, filename in images
+    ]
+    try:
+        response = client.files_upload_v2(
+            channel=channel,
+            file_uploads=file_uploads,
+            initial_comment=initial_comment,
+        )
+    except SlackApiError as exc:
+        detail = exc.response.get("error", str(exc)) if exc.response else str(exc)
+        raise SlackUploadError(f"Slack upload failed: {detail}") from exc
+
+    files = response.get("files") or (
+        [response["file"]] if response.get("file") else []
+    )
+    return {
+        "ok": bool(response.get("ok", False)),
+        "count": len(files),
+        "permalinks": [f.get("permalink") for f in files],
+    }
+
+
 def post_message(
     *,
     token: Optional[str],

@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -68,6 +68,128 @@ def test_build_matrix_malformed_amount_counts_but_totals_zero():
     assert report.total == 0.0
     assert report.matrix[2][5] == "$0.0"  # unparseable amount -> $0.0 (last col)
     assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$0.0"]
+
+
+def test_build_matrix_range_filters_and_sorts():
+    # 6/9–6/15 captures Old Deal (6/10) + the two 6/15 rows; sorted chronologically.
+    report = approvals_service.build_report_matrix(
+        _rows(), date(2026, 6, 9), date(2026, 6, 15)
+    )
+    assert report.count == 3
+    assert report.total == 28000.0
+    assert report.is_range is True
+    assert report.matrix[0] == ["APPROVALS REPORT — 6/9/2026 – 6/15/2026"]
+    # Chronological: 6/10 first, then the two 6/15 rows in original sheet order.
+    assert [r[0] for r in report.matrix[2:5]] == [
+        "Old Deal",
+        "Jason Delegado",
+        "Salvador Mexicano",
+    ]
+    assert report.matrix[2][3] == "6/10/26"  # normalized date-approved cell
+    assert report.matrix[-2] == ["TOTAL APPROVED:", "", "", "", "", "3"]
+    assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$28,000.0"]
+
+
+def test_resolve_period_today_and_yesterday():
+    today = date(2026, 6, 15)
+    assert approvals_service.resolve_period("today", today) == (today, today)
+    assert approvals_service.resolve_period("yesterday", today) == (
+        date(2026, 6, 14),
+        date(2026, 6, 14),
+    )
+
+
+def test_resolve_period_last_week_concrete():
+    # 2026-06-15 is a Monday, so the last completed week is Mon 6/8 – Sun 6/14.
+    assert approvals_service.resolve_period("last-week", date(2026, 6, 15)) == (
+        date(2026, 6, 8),
+        date(2026, 6, 14),
+    )
+
+
+def test_resolve_period_last_week_invariants():
+    # Whatever weekday it runs, last-week is a full Mon–Sun block in the past.
+    base = date(2026, 6, 15)
+    for offset in range(7):
+        today = base + timedelta(days=offset)
+        start, end = approvals_service.resolve_period("last-week", today)
+        assert start.weekday() == 0  # Monday
+        assert end.weekday() == 6  # Sunday
+        assert (end - start).days == 6
+        assert 1 <= (today - end).days <= 7
+
+
+def test_resolve_period_unknown_raises():
+    with pytest.raises(ValueError):
+        approvals_service.resolve_period("fortnight", date(2026, 6, 15))
+
+
+def test_caption_for_single_and_range():
+    assert (
+        approvals_service.caption_for(date(2026, 6, 15), date(2026, 6, 15))
+        == "APPROVALS REPORT — 6/15/2026"
+    )
+    assert (
+        approvals_service.caption_for(date(2026, 6, 8), date(2026, 6, 14), weekly=True)
+        == "WEEKLY APPROVALS REPORT — 6/8/2026 – 6/14/2026"
+    )
+
+
+def test_paginate_matrix_single_page_when_fits():
+    matrix = approvals_service.build_report_matrix(_rows(), date(2026, 6, 15)).matrix
+    # 2 data rows, page size 10 -> unchanged single page.
+    assert approvals_service.paginate_matrix(matrix, 10) == [matrix]
+    # 0 disables pagination.
+    assert approvals_service.paginate_matrix(matrix, 0) == [matrix]
+
+
+def test_paginate_matrix_splits_and_totals_on_last_page():
+    matrix = approvals_service.build_report_matrix(
+        _rows(), date(2026, 6, 9), date(2026, 6, 15)
+    ).matrix  # 3 data rows
+    pages = approvals_service.paginate_matrix(matrix, 2)
+    assert len(pages) == 2  # 2 + 1
+
+    # Page 1: title (part 1/2) + header + 2 data rows, NO totals.
+    assert pages[0][0][0].endswith("(part 1/2)")
+    assert pages[0][1] == approvals_service.HEADER
+    assert [r[0] for r in pages[0][2:]] == ["Old Deal", "Jason Delegado"]
+    assert not any(r[0].startswith("TOTAL") for r in pages[0])
+
+    # Page 2: title (part 2/2) + header + last data row + the two totals rows.
+    assert pages[1][0][0].endswith("(part 2/2)")
+    assert pages[1][2][0] == "Salvador Mexicano"
+    assert pages[1][-2] == ["TOTAL APPROVED:", "", "", "", "", "3"]
+    assert pages[1][-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$28,000.0"]
+
+
+def test_upload_pngs_posts_one_message_with_many_files(monkeypatch: pytest.MonkeyPatch):
+    captured: dict = {}
+
+    class FakeClient:
+        def __init__(self, token=None):
+            captured["token"] = token
+
+        def files_upload_v2(self, **kwargs):
+            captured.update(kwargs)
+            return {"ok": True, "files": [{"permalink": "p1"}, {"permalink": "p2"}]}
+
+    monkeypatch.setattr(slack_service, "WebClient", FakeClient)
+    result = slack_service.upload_pngs(
+        [(b"a", "approvals-1.png"), (b"b", "approvals-2.png")],
+        token="xoxb-test",
+        channel="C123",
+        initial_comment="WEEKLY APPROVALS REPORT",
+    )
+    assert result["ok"] is True
+    assert result["count"] == 2
+    # Single call -> single message; both files attached, in order.
+    assert captured["channel"] == "C123"
+    assert captured["initial_comment"] == "WEEKLY APPROVALS REPORT"
+    assert [f["filename"] for f in captured["file_uploads"]] == [
+        "approvals-1.png",
+        "approvals-2.png",
+    ]
 
 
 def test_approvals_cols_map_validates_length_and_ints():
@@ -243,3 +365,70 @@ def test_approvals_bad_theme_returns_422(client: TestClient):
         params={"output": "image", "date": TARGET, "theme": "does_not_exist"},
     )
     assert response.status_code == 422
+
+
+# --- Window selection: explicit range + named periods ------------------------
+
+
+def test_approvals_route_explicit_range(client: TestClient):
+    response = client.get(
+        "/reports/approvals",
+        params={"output": "slack", "start": "6/9/2026", "end": "6/15/2026"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["posted"] is True
+    assert body["count"] == 3  # Old Deal (6/10) + Jason + Salvador (6/15)
+
+
+def test_approvals_route_range_image_caption(client: TestClient, captured_html: list[str]):
+    response = client.get(
+        "/reports/approvals",
+        params={"output": "image", "start": "6/9/2026", "end": "6/15/2026"},
+    )
+    assert response.status_code == 200
+    html = captured_html[0]
+    assert "APPROVALS REPORT — 6/9/2026 – 6/15/2026" in html
+    assert "Old Deal" in html
+    assert "$28,000.0" in html
+
+
+def test_approvals_route_range_requires_both(client: TestClient):
+    response = client.get("/reports/approvals", params={"start": "6/9/2026"})
+    assert response.status_code == 422
+
+
+def test_approvals_route_period_yesterday(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    class _FixedDatetime:
+        @staticmethod
+        def now(tz=None):
+            return datetime(2026, 6, 16, 9, 0, tzinfo=tz)
+
+    monkeypatch.setattr(reports_module, "datetime", _FixedDatetime)
+    response = client.get(
+        "/reports/approvals", params={"output": "slack", "period": "yesterday"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["posted"] is True
+    assert body["count"] == 2  # the two 6/15/2026 rows (yesterday relative to 6/16)
+
+
+def test_approvals_route_period_last_week(
+    client: TestClient, captured_html: list[str], monkeypatch: pytest.MonkeyPatch
+):
+    # today = Monday 6/15/2026 -> last week = 6/8–6/14 -> only Old Deal (6/10).
+    class _FixedDatetime:
+        @staticmethod
+        def now(tz=None):
+            return datetime(2026, 6, 15, 9, 0, tzinfo=tz)
+
+    monkeypatch.setattr(reports_module, "datetime", _FixedDatetime)
+    response = client.get(
+        "/reports/approvals", params={"output": "image", "period": "last-week"}
+    )
+    assert response.status_code == 200
+    html = captured_html[0]
+    assert "WEEKLY APPROVALS REPORT — 6/8/2026 – 6/14/2026" in html
+    assert "Old Deal" in html
+    assert "$5,000.0" in html

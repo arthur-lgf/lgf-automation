@@ -1,0 +1,77 @@
+name: Approvals Report (Yesterday)
+
+on:
+  workflow_dispatch:
+    inputs:
+      output:
+        description: "Send to Slack or save as a workflow artifact"
+        required: false
+        default: "slack"
+        type: choice
+        options:
+          - slack
+          - file
+  # Scheduling is driven externally by cron-job.org, which calls this workflow's
+  # workflow_dispatch REST endpoint daily (run it in the morning ET so it reports
+  # the prior day's approvals). Same PAT / cron-job.org flow as approvals.yml;
+  # just point a new job at THIS workflow's /dispatches URL. See docs/SCHEDULING.md.
+
+permissions:
+  contents: read
+
+jobs:
+  approvals-yesterday:
+    name: Approvals Report (Yesterday)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: uv run playwright install --with-deps chromium
+
+      - name: Write Google service-account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Run yesterday's approvals report
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          # Optional: a dedicated channel for approvals. If this secret is unset,
+          # the report falls back to SLACK_CHANNEL_ID.
+          APPROVALS_CHANNEL_ID: ${{ secrets.APPROVALS_CHANNEL_ID }}
+          # Optional: a dedicated bot for approvals. If unset, falls back to
+          # SLACK_BOT_TOKEN. The bot must be a member of APPROVALS_CHANNEL_ID.
+          APPROVALS_SLACK_BOT_TOKEN: ${{ secrets.APPROVALS_SLACK_BOT_TOKEN }}
+          OUTPUT: ${{ inputs.output || 'slack' }}
+        run: |
+          if [ "$OUTPUT" = "file" ]; then
+            uv run python scripts/approvals.py --period yesterday --output file --out-path approvals-yesterday.png
+          else
+            uv run python scripts/approvals.py --period yesterday --output slack
+          fi
+
+      - name: Upload PNG as workflow artifact
+        if: ${{ inputs.output == 'file' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: approvals-yesterday
+          path: approvals-yesterday.png
+          if-no-files-found: error
+          retention-days: 7
