@@ -90,6 +90,80 @@ def test_build_matrix_range_filters_and_sorts():
     assert report.matrix[-1] == ["TOTAL AMOUNT APPROVED:", "", "", "", "", "$28,000.0"]
 
 
+# --- Unit tests: weekly REP leaderboard --------------------------------------
+
+
+def _lb_row(date_approved: str, client: str, amount: str, rep: str) -> list[str]:
+    """Build one APPS-shaped row (cols: date_approved=1, client=4, amount=8, rep=11)."""
+    r = [""] * 12
+    r[1], r[4], r[8], r[11] = date_approved, client, amount, rep
+    return r
+
+
+def test_leaderboard_aggregates_and_ranks_by_amount():
+    rows = [
+        _lb_row("6/9/2026", "Client A", "$10,000.00", "Alice"),
+        _lb_row("6/10/2026", "Client B", "$5,000.00", "Bob"),
+        _lb_row("6/11/2026", "Client C", "$8,000.00", "Alice"),
+        _lb_row("6/12/2026", "Client D", "$3,000.00", "Bob"),
+        _lb_row("6/13/2026", "Client E", "$1,000.00", "Carol"),
+        _lb_row("6/13/2026", "", "$2,500.00", "Bob"),  # blank client -> dropped
+        _lb_row("6/20/2026", "Out Of Range", "$99,000.00", "Alice"),  # outside window
+    ]
+    report = approvals_service.build_rep_leaderboard(
+        rows, date(2026, 6, 8), date(2026, 6, 14),
+        title="WEEKLY APPROVALS REPORT — 6/8/2026 – 6/14/2026",
+    )
+    # Alice 18000 (2 deals), Bob 8000 (2), Carol 1000 (1).
+    assert report.count == 5  # total deals counted
+    assert report.total == 27000.0
+    assert report.matrix[0] == ["WEEKLY APPROVALS REPORT — 6/8/2026 – 6/14/2026"]
+    assert approvals_service.LEADERBOARD_HEADER == ["RANK", "REP", "QTY", "AMOUNT"]
+    assert report.matrix[1] == approvals_service.LEADERBOARD_HEADER
+    # Ranked by total amount, descending.
+    assert report.matrix[2] == ["1", "Alice", "2", "$18,000.0"]
+    assert report.matrix[3] == ["2", "Bob", "2", "$8,000.0"]
+    assert report.matrix[4] == ["3", "Carol", "1", "$1,000.0"]
+    # Single TOTAL row: grand deal count in the label, grand amount on the right.
+    assert report.matrix[-1] == ["", "TOTAL (5 DEALS)", "", "$27,000.0"]
+
+
+def test_leaderboard_ranks_by_amount_not_qty():
+    # Bob has more deals but a lower total -> Alice (one big deal) ranks first.
+    rows = [
+        _lb_row("6/9/2026", "C1", "$1,000.00", "Bob"),
+        _lb_row("6/10/2026", "C2", "$1,000.00", "Bob"),
+        _lb_row("6/11/2026", "C3", "$1,000.00", "Bob"),
+        _lb_row("6/12/2026", "C4", "$9,000.00", "Alice"),
+    ]
+    report = approvals_service.build_rep_leaderboard(rows, date(2026, 6, 8), date(2026, 6, 14))
+    assert report.matrix[2] == ["1", "Alice", "1", "$9,000.0"]
+    assert report.matrix[3] == ["2", "Bob", "3", "$3,000.0"]
+
+
+def test_leaderboard_tie_break_amount_then_qty():
+    # Equal $5,000 totals: more deals ranks above fewer.
+    rows = [
+        _lb_row("6/9/2026", "C1", "$5,000.00", "Zoe"),   # 1 deal, $5,000
+        _lb_row("6/9/2026", "C2", "$2,500.00", "Amy"),
+        _lb_row("6/10/2026", "C3", "$2,500.00", "Amy"),  # 2 deals, $5,000
+    ]
+    report = approvals_service.build_rep_leaderboard(rows, date(2026, 6, 8), date(2026, 6, 14))
+    assert report.matrix[2] == ["1", "Amy", "2", "$5,000.0"]
+    assert report.matrix[3] == ["2", "Zoe", "1", "$5,000.0"]
+
+
+def test_leaderboard_empty_window():
+    report = approvals_service.build_rep_leaderboard(
+        [_lb_row("6/9/2026", "Client A", "$10,000.00", "Alice")],
+        date(2000, 1, 1), date(2000, 1, 7),
+    )
+    assert report.count == 0
+    assert report.total == 0.0
+    assert report.matrix[1] == approvals_service.LEADERBOARD_HEADER
+    assert report.matrix[-1] == ["", "TOTAL (0 DEALS)", "", "$0.0"]
+
+
 def test_resolve_period_today_and_yesterday():
     today = date(2026, 6, 15)
     assert approvals_service.resolve_period("today", today) == (today, today)
@@ -414,10 +488,12 @@ def test_approvals_route_period_yesterday(client: TestClient, monkeypatch: pytes
     assert body["count"] == 2  # the two 6/15/2026 rows (yesterday relative to 6/16)
 
 
-def test_approvals_route_period_last_week(
+def test_approvals_route_period_last_week_renders_rep_leaderboard(
     client: TestClient, captured_html: list[str], monkeypatch: pytest.MonkeyPatch
 ):
-    # today = Monday 6/15/2026 -> last week = 6/8–6/14 -> only Old Deal (6/10).
+    # today = Monday 6/15/2026 -> last week = 6/8–6/14 -> only Old Deal (6/10),
+    # whose rep is Arnold. The weekly window renders a per-REP leaderboard, so the
+    # rep name + QTY/AMOUNT appear and the client name does NOT.
     class _FixedDatetime:
         @staticmethod
         def now(tz=None):
@@ -430,5 +506,7 @@ def test_approvals_route_period_last_week(
     assert response.status_code == 200
     html = captured_html[0]
     assert "WEEKLY APPROVALS REPORT — 6/8/2026 – 6/14/2026" in html
-    assert "Old Deal" in html
+    assert "RANK" in html and "QTY" in html  # leaderboard header
+    assert "Arnold" in html  # the rep, ranked
     assert "$5,000.0" in html
+    assert "Old Deal" not in html  # client name is not shown in the leaderboard

@@ -142,17 +142,28 @@ async def _run(args: argparse.Namespace) -> int:
         return 3
 
     caption = approvals_service.caption_for(start, end, weekly=weekly)
-    report = approvals_service.build_report_matrix(
-        values, start, end, cols=cols, title=caption
-    )
+    # The weekly report is a per-REP leaderboard ranked by amount; every other
+    # window keeps the per-approval list.
+    if weekly:
+        report = approvals_service.build_rep_leaderboard(
+            values, start, end, cols=cols, title=caption
+        )
+    else:
+        report = approvals_service.build_report_matrix(
+            values, start, end, cols=cols, title=caption
+        )
     print(f"{caption}: {report.count} row(s), total ${report.total:,.2f}.")
 
     if report.count == 0 and args.output == "slack":
         print(f"No approvals for this window; nothing posted.")
         return 0
 
-    # Split into pages of N data rows each (one image per page). 0 = single image.
-    pages = approvals_service.paginate_matrix(report.matrix, args.chunk_rows)
+    # The weekly leaderboard is a single ranked image; only the per-approval list
+    # paginates (long daily/range reports). 0 = single image.
+    if weekly:
+        pages = [report.matrix]
+    else:
+        pages = approvals_service.paginate_matrix(report.matrix, args.chunk_rows)
 
     try:
         pngs: list[bytes] = []

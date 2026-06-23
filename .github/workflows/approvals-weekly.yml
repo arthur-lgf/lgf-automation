@@ -63,9 +63,9 @@ jobs:
           OUTPUT: ${{ inputs.output || 'slack' }}
         run: |
           if [ "$OUTPUT" = "file" ]; then
-            uv run python scripts/approvals.py --period last-week --chunk-rows 10 --output file --out-path approvals-weekly.png
+            uv run python scripts/approvals.py --period last-week --output file --out-path approvals-weekly.png
           else
-            uv run python scripts/approvals.py --period last-week --chunk-rows 10 --output slack
+            uv run python scripts/approvals.py --period last-week --output slack
           fi
 
       - name: Upload PNG as workflow artifact

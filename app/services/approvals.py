@@ -29,6 +29,10 @@ DEFAULT_COLS: dict[str, int] = {
 # breaks them onto a second line.
 HEADER = ["CLIENT", "BANK", "REP", "DATE\nAPPROVED", "INVOICE\nSENT", "AMOUNT"]
 
+# The WEEKLY report is a per-REP leaderboard instead of the per-approval list:
+# each rep's deal count (QTY) and total amount, ranked by amount.
+LEADERBOARD_HEADER = ["RANK", "REP", "QTY", "AMOUNT"]
+
 # The Date-Approved column displays a 2-digit year (e.g. "8/29/25") while other
 # date columns use 4-digit, so accept both. ISO is allowed for robustness.
 _DATE_FORMATS = ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d")
@@ -228,4 +232,65 @@ def build_report_matrix(
 
     return ApprovalsReport(
         matrix=matrix, count=count, total=total, start_date=lo, end_date=hi
+    )
+
+
+def build_rep_leaderboard(
+    values: list[list[str]],
+    start_date: date,
+    end_date: Optional[date] = None,
+    cols: Optional[dict[str, int]] = None,
+    title: Optional[str] = None,
+) -> ApprovalsReport:
+    """Aggregate approvals in ``[start_date, end_date]`` (inclusive) into a per-REP
+    leaderboard ranked by total amount — the shape used for the WEEKLY report.
+
+    Each data row is ``[rank, rep, qty, amount]``: how many deals that rep got
+    approved in the window and their summed amount, ordered by amount descending
+    (ties broken by more deals, then rep name A–Z). A single ``TOTAL`` row carries
+    the grand QTY and amount in their own columns (RANK left blank so the renderer
+    classifies it as a totals row).
+
+    The matched set matches :func:`build_report_matrix` exactly (Date-Approved in
+    the window AND a non-blank Client cell), so the leaderboard's grand totals
+    equal the per-approval report's for the same window. A blank Rep is grouped
+    under ``"UNASSIGNED"``.
+    """
+    cols = cols or DEFAULT_COLS
+    lo = start_date
+    hi = start_date if end_date is None else end_date
+    if hi < lo:
+        lo, hi = hi, lo
+
+    # rep -> [qty, amount]; running grand totals mirror build_report_matrix.
+    by_rep: dict[str, list] = {}
+    total_qty = 0
+    total_amount = 0.0
+    for row in values:
+        approved = parse_date(_cell(row, cols["date_approved"]))
+        if approved is None or not (lo <= approved <= hi):
+            continue
+        if not _cell(row, cols["client"]):  # skip blank/placeholder rows
+            continue
+        rep = _cell(row, cols["rep"]) or "UNASSIGNED"
+        amount = parse_amount(_cell(row, cols["amount"]))
+        bucket = by_rep.setdefault(rep, [0, 0.0])
+        bucket[0] += 1
+        bucket[1] += amount
+        total_qty += 1
+        total_amount += amount
+
+    # Rank by amount desc; break ties by more deals, then rep name (stable, A–Z).
+    ranked = sorted(by_rep.items(), key=lambda kv: (-kv[1][1], -kv[1][0], kv[0]))
+
+    title_text = title or caption_for(lo, hi, weekly=True)
+    matrix: list[list[str]] = [[title_text], list(LEADERBOARD_HEADER)]
+    for rank, (rep, (qty, amount)) in enumerate(ranked, start=1):
+        matrix.append([str(rank), rep, str(qty), f"${amount:,.1f}"])
+    # The renderer merges every amount-shaped cell on a totals row, so the grand
+    # deal count goes in the label (keeping the amount alone, right-aligned).
+    matrix.append(["", f"TOTAL ({total_qty} DEALS)", "", f"${total_amount:,.1f}"])
+
+    return ApprovalsReport(
+        matrix=matrix, count=total_qty, total=total_amount, start_date=lo, end_date=hi
     )

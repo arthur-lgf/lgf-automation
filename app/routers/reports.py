@@ -119,11 +119,18 @@ async def approvals_report(
             status_code=502, content={"error": "sheet_access", "detail": str(exc)}
         )
 
-    # 3) Filter to the window's approvals and shape the renderer matrix.
+    # 3) Filter to the window's approvals and shape the renderer matrix. The
+    # weekly window renders a per-REP leaderboard ranked by amount; every other
+    # window keeps the per-approval list.
     caption = approvals_service.caption_for(win_start, win_end, weekly=weekly)
-    report = approvals_service.build_report_matrix(
-        values, win_start, win_end, cols=cols, title=caption
-    )
+    if weekly:
+        report = approvals_service.build_rep_leaderboard(
+            values, win_start, win_end, cols=cols, title=caption
+        )
+    else:
+        report = approvals_service.build_report_matrix(
+            values, win_start, win_end, cols=cols, title=caption
+        )
 
     # Nothing approved in the window: don't post an empty report; report the fact.
     if report.count == 0 and output == "slack":
