@@ -105,6 +105,13 @@ class ApprovalsReport:
 
 # Named-period aliases accepted by ``resolve_period``.
 _WEEKLY_ALIASES = {"last-week", "week", "weekly"}
+_MONTHLY_ALIASES = {"last-month", "month", "monthly"}
+
+# Locale-independent month names for the monthly caption (e.g. "May 2026").
+_MONTH_NAMES = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
 
 
 def resolve_period(period: str, today: date) -> tuple[date, date]:
@@ -115,6 +122,9 @@ def resolve_period(period: str, today: date) -> tuple[date, date]:
     - ``last-week``/week  -> the most recent *completed* Monday–Sunday week, so
                              running it on any day reports the week that ended
                              before the current one (run it Monday for last week).
+    - ``last-month``/month -> the full previous calendar month (1st..last day), so
+                             running it on the 1st reports the month that just
+                             ended.
 
     Raises ``ValueError`` for an unknown period name.
     """
@@ -130,11 +140,37 @@ def resolve_period(period: str, today: date) -> tuple[date, date]:
         last_sunday = today - timedelta(days=today.weekday() + 1)
         last_monday = last_sunday - timedelta(days=6)
         return last_monday, last_sunday
-    raise ValueError(f"unknown period '{period}' (use today, yesterday, or last-week)")
+    if p in _MONTHLY_ALIASES:
+        # Step back to the 1st of this month, then one day into the prior month;
+        # that month's 1st..last day is the previous calendar month.
+        first_of_this = today.replace(day=1)
+        last_prev = first_of_this - timedelta(days=1)
+        first_prev = last_prev.replace(day=1)
+        return first_prev, last_prev
+    raise ValueError(
+        f"unknown period '{period}' (use today, yesterday, last-week, or last-month)"
+    )
 
 
-def caption_for(start: date, end: date, *, weekly: bool = False) -> str:
+def period_kind(period: str) -> Optional[str]:
+    """Classify a named period for caption/format selection: ``"weekly"`` and
+    ``"monthly"`` render the per-REP leaderboard; other periods (daily/range)
+    render the per-approval list. Returns ``None`` for non-summary periods."""
+    p = period.strip().lower()
+    if p in _WEEKLY_ALIASES:
+        return "weekly"
+    if p in _MONTHLY_ALIASES:
+        return "monthly"
+    return None
+
+
+def caption_for(
+    start: date, end: date, *, weekly: bool = False, monthly: bool = False
+) -> str:
     """Caption shown on the gold title row, the page <title>, and the Slack post."""
+    if monthly:
+        # A month is labeled by its name, not a date range (e.g. "May 2026").
+        return f"MONTHLY APPROVALS REPORT — {_MONTH_NAMES[start.month - 1]} {start.year}"
     label = "WEEKLY APPROVALS REPORT" if weekly else "APPROVALS REPORT"
     if start == end:
         return f"{label} — {format_date_us(start)}"

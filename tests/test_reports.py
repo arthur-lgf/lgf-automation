@@ -209,6 +209,50 @@ def test_caption_for_single_and_range():
     )
 
 
+def test_resolve_period_last_month():
+    # Mid-month run -> the full previous calendar month.
+    assert approvals_service.resolve_period("last-month", date(2026, 6, 23)) == (
+        date(2026, 5, 1),
+        date(2026, 5, 31),
+    )
+    # Run on the 1st -> the month that just ended.
+    assert approvals_service.resolve_period("last-month", date(2026, 7, 1)) == (
+        date(2026, 6, 1),
+        date(2026, 6, 30),
+    )
+    # Year boundary -> December of the prior year.
+    assert approvals_service.resolve_period("last-month", date(2026, 1, 10)) == (
+        date(2025, 12, 1),
+        date(2025, 12, 31),
+    )
+    # Alias + a short (Feb, non-leap) month.
+    assert approvals_service.resolve_period("monthly", date(2026, 3, 5)) == (
+        date(2026, 2, 1),
+        date(2026, 2, 28),
+    )
+
+
+def test_caption_for_monthly():
+    assert (
+        approvals_service.caption_for(date(2026, 5, 1), date(2026, 5, 31), monthly=True)
+        == "MONTHLY APPROVALS REPORT — May 2026"
+    )
+    assert (
+        approvals_service.caption_for(
+            date(2025, 12, 1), date(2025, 12, 31), monthly=True
+        )
+        == "MONTHLY APPROVALS REPORT — December 2025"
+    )
+
+
+def test_period_kind():
+    assert approvals_service.period_kind("last-week") == "weekly"
+    assert approvals_service.period_kind("last-month") == "monthly"
+    assert approvals_service.period_kind("monthly") == "monthly"
+    assert approvals_service.period_kind("today") is None
+    assert approvals_service.period_kind("yesterday") is None
+
+
 def test_paginate_matrix_single_page_when_fits():
     matrix = approvals_service.build_report_matrix(_rows(), date(2026, 6, 15)).matrix
     # 2 data rows, page size 10 -> unchanged single page.
@@ -510,3 +554,26 @@ def test_approvals_route_period_last_week_renders_rep_leaderboard(
     assert "Arnold" in html  # the rep, ranked
     assert "$5,000.0" in html
     assert "Old Deal" not in html  # client name is not shown in the leaderboard
+
+
+def test_approvals_route_period_last_month_renders_monthly_leaderboard(
+    client: TestClient, captured_html: list[str], monkeypatch: pytest.MonkeyPatch
+):
+    # today = 7/15/2026 -> last month = June 2026. Fixture June rows: Old Deal
+    # (6/10, Arnold, $5k), Jason (6/15, Bikram, $11k), Salvador (6/15, Jose, $12k);
+    # the blank-client 6/15 row is dropped. Leaderboard ranks by amount.
+    class _FixedDatetime:
+        @staticmethod
+        def now(tz=None):
+            return datetime(2026, 7, 15, 9, 0, tzinfo=tz)
+
+    monkeypatch.setattr(reports_module, "datetime", _FixedDatetime)
+    response = client.get(
+        "/reports/approvals", params={"output": "image", "period": "last-month"}
+    )
+    assert response.status_code == 200
+    html = captured_html[0]
+    assert "MONTHLY APPROVALS REPORT — June 2026" in html
+    assert "RANK" in html and "QTY" in html  # leaderboard header
+    assert "Jose" in html and "Bikram" in html and "Arnold" in html  # ranked reps
+    assert "TOTAL (3 DEALS)" in html

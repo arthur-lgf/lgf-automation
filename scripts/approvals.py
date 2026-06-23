@@ -43,9 +43,10 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Post an APPROVALS REPORT.")
     parser.add_argument(
         "--period",
-        choices=["today", "yesterday", "last-week"],
+        choices=["today", "yesterday", "last-week", "last-month"],
         default=(os.getenv("APPROVALS_PERIOD") or "today"),
-        help="Named window when no --date/--start/--end given (or APPROVALS_PERIOD env).",
+        help="Named window when no --date/--start/--end given (or APPROVALS_PERIOD env). "
+        "last-week and last-month render a per-REP leaderboard.",
     )
     parser.add_argument(
         "--date",
@@ -83,44 +84,47 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _resolve_window(args: argparse.Namespace, settings) -> tuple:
-    """Resolve (start, end, weekly) from CLI args. Returns (None, None, False) on
-    a user-input error after printing a ::error:: line."""
+    """Resolve (start, end, kind) from CLI args, where kind is "weekly"/"monthly"
+    (per-REP leaderboard) or None (per-approval list). Returns (None, None, None)
+    on a user-input error after printing a ::error:: line."""
     parse_date = approvals_service.parse_date
 
     if args.start or args.end:
         if not (args.start and args.end):
             print("::error::--start and --end must be given together.", file=sys.stderr)
-            return None, None, False
+            return None, None, None
         start = parse_date(args.start)
         end = parse_date(args.end)
         if start is None or end is None:
             print("::error::invalid --start/--end; use M/D/YYYY.", file=sys.stderr)
-            return None, None, False
-        return start, end, False
+            return None, None, None
+        return start, end, None
 
     if args.date:
         target = parse_date(args.date)
         if target is None:
             print(f"::error::invalid date '{args.date}'; use M/D/YYYY.", file=sys.stderr)
-            return None, None, False
-        return target, target, False
+            return None, None, None
+        return target, target, None
 
     try:
         tz = ZoneInfo(settings.report_tz)
     except ZoneInfoNotFoundError as exc:
         print(f"::error::bad REPORT_TZ '{settings.report_tz}': {exc}", file=sys.stderr)
-        return None, None, False
+        return None, None, None
     today = datetime.now(tz).date()
     start, end = approvals_service.resolve_period(args.period, today)
-    return start, end, args.period == "last-week"
+    return start, end, approvals_service.period_kind(args.period)
 
 
 async def _run(args: argparse.Namespace) -> int:
     settings = get_settings()
 
-    start, end, weekly = _resolve_window(args, settings)
+    start, end, kind = _resolve_window(args, settings)
     if start is None:
         return 2
+    weekly, monthly = kind == "weekly", kind == "monthly"
+    leaderboard = kind is not None  # weekly/monthly use the per-REP leaderboard
 
     try:
         cols = settings.approvals_cols_map()
@@ -141,10 +145,10 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"::error::sheet_access: {exc}", file=sys.stderr)
         return 3
 
-    caption = approvals_service.caption_for(start, end, weekly=weekly)
-    # The weekly report is a per-REP leaderboard ranked by amount; every other
-    # window keeps the per-approval list.
-    if weekly:
+    caption = approvals_service.caption_for(start, end, weekly=weekly, monthly=monthly)
+    # The weekly/monthly reports are a per-REP leaderboard ranked by amount; every
+    # other window keeps the per-approval list.
+    if leaderboard:
         report = approvals_service.build_rep_leaderboard(
             values, start, end, cols=cols, title=caption
         )
@@ -158,9 +162,9 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"No approvals for this window; nothing posted.")
         return 0
 
-    # The weekly leaderboard is a single ranked image; only the per-approval list
+    # The leaderboard is a single ranked image; only the per-approval list
     # paginates (long daily/range reports). 0 = single image.
-    if weekly:
+    if leaderboard:
         pages = [report.matrix]
     else:
         pages = approvals_service.paginate_matrix(report.matrix, args.chunk_rows)

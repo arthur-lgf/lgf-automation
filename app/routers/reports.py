@@ -31,10 +31,12 @@ async def approvals_report(
     output: Literal["image", "slack"] = Query(
         default="slack", description="'slack' posts the PNG; 'image' returns it."
     ),
-    period: Literal["today", "yesterday", "last-week"] = Query(
+    period: Literal["today", "yesterday", "last-week", "last-month"] = Query(
         default="today",
         description="Named window used when no date/start/end given. "
-        "'last-week' = most recent completed Monday–Sunday.",
+        "'last-week' = most recent completed Monday–Sunday; "
+        "'last-month' = the previous calendar month. Both render a per-REP "
+        "leaderboard.",
     ),
     date: Optional[str] = Query(
         default=None, description="M/D/YYYY single-day override."
@@ -54,7 +56,7 @@ async def approvals_report(
 ) -> Response:
     # 1) Resolve the report window. Precedence: explicit start+end range >
     # explicit single date > named period (relative to today in the report TZ).
-    weekly = False
+    kind = None  # "weekly"/"monthly" (leaderboard) or None (per-approval list)
     if start or end:
         if not (start and end):
             raise HTTPException(
@@ -86,7 +88,7 @@ async def approvals_report(
             )
         today = datetime.now(tz).date()
         win_start, win_end = approvals_service.resolve_period(period, today)
-        weekly = period == "last-week"
+        kind = approvals_service.period_kind(period)
 
     spreadsheet = spreadsheet_id or settings.approvals_spreadsheet_id
     resolved_gid = gid if gid is not None else settings.approvals_gid
@@ -120,10 +122,12 @@ async def approvals_report(
         )
 
     # 3) Filter to the window's approvals and shape the renderer matrix. The
-    # weekly window renders a per-REP leaderboard ranked by amount; every other
-    # window keeps the per-approval list.
-    caption = approvals_service.caption_for(win_start, win_end, weekly=weekly)
-    if weekly:
+    # weekly/monthly windows render a per-REP leaderboard ranked by amount; every
+    # other window keeps the per-approval list.
+    caption = approvals_service.caption_for(
+        win_start, win_end, weekly=kind == "weekly", monthly=kind == "monthly"
+    )
+    if kind is not None:
         report = approvals_service.build_rep_leaderboard(
             values, win_start, win_end, cols=cols, title=caption
         )
