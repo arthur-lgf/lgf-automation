@@ -82,6 +82,28 @@ def verify_signature(
     return hmac.compare_digest(expected, signature)
 
 
+def _normalize_secrets(signing_secret) -> list:
+    """Coerce ``signing_secret`` (a single secret or an iterable of them) into a
+    list of usable secrets. Blanks are dropped (unset env vars arrive as "") and
+    surrounding whitespace is stripped (a trailing newline is a common copy-paste
+    artifact that would otherwise silently fail every request)."""
+    if signing_secret is None:
+        return []
+    if isinstance(signing_secret, bytes):
+        signing_secret = signing_secret.decode("utf-8")
+    candidates = [signing_secret] if isinstance(signing_secret, str) else list(signing_secret)
+    out = []
+    for cand in candidates:
+        if cand is None:
+            continue
+        if isinstance(cand, bytes):
+            cand = cand.decode("utf-8")
+        cand = cand.strip()
+        if cand:
+            out.append(cand)
+    return out
+
+
 def _usage_approvals() -> str:
     return "Usage: `/approvals [today|yesterday|last-week|last-month]` (default: today)"
 
@@ -161,7 +183,7 @@ def handle_slash_request(
     *,
     raw_body,
     headers: dict,
-    signing_secret: str,
+    signing_secret,  # a single secret (str) or an iterable of them (one per app)
     github_token: str,
     repo: str,
     ref: str = "main",
@@ -172,10 +194,18 @@ def handle_slash_request(
     dispatch -> ephemeral reply. Never raises; every failure becomes a response."""
     signature = _header(headers, "X-Slack-Signature")
     timestamp = _header(headers, "X-Slack-Request-Timestamp")
-    if not verify_signature(
-        signing_secret=signing_secret, timestamp=timestamp, signature=signature,
-        body=raw_body, now=now,
-    ):
+    # ``signing_secret`` may be a single secret or several (one per Slack app, when
+    # /approvals and /sales live in different apps). The request is authentic if it
+    # verifies against ANY configured secret.
+    secrets = _normalize_secrets(signing_secret)
+    verified = any(
+        verify_signature(
+            signing_secret=secret, timestamp=timestamp, signature=signature,
+            body=raw_body, now=now,
+        )
+        for secret in secrets
+    )
+    if not verified:
         return HandlerResponse(401, _ephemeral("Signature verification failed."))
 
     decoded = raw_body.decode("utf-8") if isinstance(raw_body, bytes) else raw_body

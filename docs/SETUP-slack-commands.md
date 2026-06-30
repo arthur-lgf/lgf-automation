@@ -23,28 +23,42 @@ standard-library only.
 3. Permissions → Repository → **Actions: Read and write**. (Nothing else needed.)
 4. Generate, copy the token (starts `github_pat_…`).
 
-### 2. Slack app + slash commands
-1. https://api.slack.com/apps → **Create New App → From scratch** → name it
-   (e.g. *LGF Reports*) → pick your workspace.
-2. **Slash Commands → Create New Command** (do this twice):
+### 2. Slack app(s) + slash commands
+The `/approvals` and `/sales` commands can live in **one** Slack app or **two
+separate apps** — the listener accepts either. Both point at the same Vercel URL.
+
+For each app: https://api.slack.com/apps → **Create New App → From scratch** →
+name it → pick your workspace, then:
+1. **Slash Commands → Create New Command**:
    | Command | Request URL | Usage hint |
    |---|---|---|
    | `/approvals` | `https://<your-vercel-app>.vercel.app/api/slack` | `[today\|yesterday\|last-week\|last-month]` |
    | `/sales` | `https://<your-vercel-app>.vercel.app/api/slack` | `[daily\|monthly]` |
-   (You'll get the real Vercel URL in step 3 — you can paste a placeholder now and update it after deploy.)
-3. **Basic Information → App Credentials → Signing Secret** → copy it.
-4. **Install App → Install to Workspace.**
+   (You'll get the real Vercel URL in step 3 — paste a placeholder now and update after deploy.)
+2. **Basic Information → App Credentials → Signing Secret** → copy it.
+3. **Install App → Install to Workspace.**
+
+**Two apps?** Each has its **own signing secret** — set both in Vercel
+(`SLACK_SIGNING_SECRET_APPROVAL` and `SLACK_SIGNING_SECRET_SALES`, step 3). A
+request is accepted if it matches **either** secret, so put each command in
+whichever app you like. **One app?** Both commands share one secret — set it as
+`SLACK_SIGNING_SECRET_APPROVAL` and leave the other blank.
 
 ### 3. Deploy the listener to Vercel
 1. Vercel → **Add New → Project** → import the `lgf-automation` repo as a **new
    project** (separate from ChatbotAI). Framework preset: **Other**.
-2. **Environment Variables:**
+2. **Environment Variables** (paste with **no trailing spaces/newlines** — they're
+   stripped, but keep them clean):
    | Name | Value |
    |---|---|
-   | `SLACK_SIGNING_SECRET` | the signing secret from step 2.3 |
+   | `SLACK_SIGNING_SECRET_APPROVAL` | signing secret of the app hosting `/approvals` (or your single app) |
+   | `SLACK_SIGNING_SECRET_SALES` | signing secret of the app hosting `/sales` (leave blank if one app) |
    | `GITHUB_TOKEN` | the PAT from step 1 |
    | `GITHUB_REPO` | `arthur-lgf/lgf-automation` |
    | `GITHUB_REF_NAME` | `main` (optional; default is `main`) |
+
+   (`SLACK_SIGNING_SECRET` — the legacy single-secret name — still works as a
+   fallback if you prefer it.)
 3. **Deploy.** Your endpoint is `https://<project>.vercel.app/api/slack`
    (open it in a browser — a GET should say "endpoint is live").
 4. Go back to the two slash commands and set their **Request URL** to that

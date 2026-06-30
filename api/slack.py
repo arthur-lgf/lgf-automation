@@ -5,10 +5,15 @@ raw POST body (needed for signature verification) and the Slack headers, hands
 them to the tested pure-logic layer, and writes back the ephemeral JSON reply.
 
 Config via Vercel env vars:
-  SLACK_SIGNING_SECRET  Slack app signing secret (request verification)
+  SLACK_SIGNING_SECRET_APPROVAL  signing secret of the Slack app hosting /approvals
+  SLACK_SIGNING_SECRET_SALES     signing secret of the Slack app hosting /sales
+  SLACK_SIGNING_SECRET           legacy single-app secret (optional fallback)
   GITHUB_TOKEN          fine-grained PAT with actions:write on the repo
   GITHUB_REPO           "owner/repo" to dispatch workflows in
   GITHUB_REF_NAME       branch to run workflows on (optional, default "main")
+
+A request is accepted if it verifies against ANY of the configured signing
+secrets, so /approvals and /sales can live in two separate Slack apps.
 """
 import json
 import os
@@ -29,7 +34,11 @@ class handler(BaseHTTPRequestHandler):
         result = handle_slash_request(
             raw_body=raw,
             headers={k: v for k, v in self.headers.items()},
-            signing_secret=os.environ.get("SLACK_SIGNING_SECRET", ""),
+            signing_secret=[
+                os.environ.get("SLACK_SIGNING_SECRET_APPROVAL", ""),
+                os.environ.get("SLACK_SIGNING_SECRET_SALES", ""),
+                os.environ.get("SLACK_SIGNING_SECRET", ""),  # legacy single-app
+            ],
             github_token=os.environ.get("GITHUB_TOKEN", ""),
             repo=os.environ.get("GITHUB_REPO", ""),
             ref=os.environ.get("GITHUB_REF_NAME", "main"),

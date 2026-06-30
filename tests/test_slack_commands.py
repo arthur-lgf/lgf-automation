@@ -173,3 +173,68 @@ def test_handle_dispatch_failure_is_reported_not_raised():
     assert resp.status == 200
     assert resp.body["response_type"] == "ephemeral"
     assert "couldn't" in resp.body["text"].lower()
+
+
+# --- multiple signing secrets (two Slack apps) --------------------------------
+
+SALES_SECRET = "11aa22bb33cc44dd55ee66ff77001122"
+
+
+def test_handle_accepts_request_signed_with_either_secret():
+    # A request from the *sales* app (signed with SALES_SECRET) must verify even
+    # though SECRET (the approvals app) is listed first.
+    body = _form(command="/sales", text="monthly", channel_id="C1")
+    ts = "1700000000"
+    calls = []
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body, SALES_SECRET),
+                 "X-Slack-Request-Timestamp": ts},
+        signing_secret=[SECRET, SALES_SECRET], github_token="g", repo="o/r",
+        now=1700000003, dispatcher=lambda **k: calls.append(k) or 204,
+    )
+    assert resp.status == 200
+    assert len(calls) == 1 and calls[0]["workflow"] == "sales-ondemand.yml"
+
+
+def test_handle_rejects_signature_from_an_unconfigured_secret():
+    body = _form(command="/approvals", text="", channel_id="C1")
+    ts = "1700000000"
+    called = []
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body, "some-other-app-secret"),
+                 "X-Slack-Request-Timestamp": ts},
+        signing_secret=[SECRET, SALES_SECRET], github_token="g", repo="o/r",
+        now=1700000003, dispatcher=lambda **k: called.append(k) or 204,
+    )
+    assert resp.status == 401
+    assert not called
+
+
+def test_handle_tolerates_blank_and_whitespace_padded_secrets():
+    # Unset env vars arrive as "" and must be ignored; a real secret with a stray
+    # trailing newline (copy-paste artifact) must still verify.
+    body = _form(command="/approvals", text="last-week", channel_id="C1")
+    ts = "1700000000"
+    calls = []
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body), "X-Slack-Request-Timestamp": ts},
+        signing_secret=["", f"  {SECRET}\n", None], github_token="g", repo="o/r",
+        now=1700000003, dispatcher=lambda **k: calls.append(k) or 204,
+    )
+    assert resp.status == 200
+    assert len(calls) == 1
+
+
+def test_handle_rejects_when_no_secrets_configured():
+    body = _form(command="/approvals", text="", channel_id="C1")
+    ts = "1700000000"
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body), "X-Slack-Request-Timestamp": ts},
+        signing_secret=["", None], github_token="g", repo="o/r", now=1700000003,
+        dispatcher=lambda **k: 204,
+    )
+    assert resp.status == 401
