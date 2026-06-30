@@ -15,6 +15,20 @@ on:
         description: "Optional M/D/YYYY override (default: today in ET)"
         required: false
         type: string
+      period:
+        description: "Report window (on-demand via /approvals). Blank/today = the scheduled daily run."
+        required: false
+        type: choice
+        default: "today"
+        options:
+          - today
+          - yesterday
+          - last-week
+          - last-month
+      channel:
+        description: "Slack channel ID to post to (default: the configured approvals channel)"
+        required: false
+        type: string
   # Scheduling is driven externally by cron-job.org, which calls this workflow's
   # workflow_dispatch REST endpoint at 11:00 AM America/New_York daily.
   # See docs/SCHEDULING.md for the trigger setup (same PAT/cron-job.org flow as
@@ -57,14 +71,16 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-          # Optional: a dedicated channel for approvals. If this secret is unset,
-          # the report falls back to SLACK_CHANNEL_ID.
-          APPROVALS_CHANNEL_ID: ${{ secrets.APPROVALS_CHANNEL_ID }}
+          # On-demand /approvals passes a channel; otherwise the dedicated
+          # approvals channel, then SLACK_CHANNEL_ID.
+          APPROVALS_CHANNEL_ID: ${{ inputs.channel || secrets.APPROVALS_CHANNEL_ID }}
           # Optional: a dedicated bot for approvals. If unset, falls back to
-          # SLACK_BOT_TOKEN. The bot must be a member of APPROVALS_CHANNEL_ID.
+          # SLACK_BOT_TOKEN. The bot must be a member of the target channel.
           APPROVALS_SLACK_BOT_TOKEN: ${{ secrets.APPROVALS_SLACK_BOT_TOKEN }}
           OUTPUT: ${{ inputs.output || 'slack' }}
           APPROVALS_DATE: ${{ inputs.date }}
+          # On-demand window; blank -> the script's default (today).
+          APPROVALS_PERIOD: ${{ inputs.period }}
         run: |
           if [ "$OUTPUT" = "file" ]; then
             uv run python scripts/approvals.py --output file --out-path approvals.png

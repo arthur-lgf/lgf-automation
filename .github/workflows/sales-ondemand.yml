@@ -1,0 +1,75 @@
+name: Sales Report (on demand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      report:
+        description: "Which sales report to post"
+        required: false
+        type: choice
+        default: "daily"
+        options:
+          - daily
+          - monthly
+      channel:
+        description: "Slack channel ID to post to (default: SLACK_CHANNEL_ID)"
+        required: false
+        type: string
+  # No schedule: this workflow exists for the Slack `/sales` command, which fires
+  # it via the workflow_dispatch REST endpoint (through the Vercel listener). The
+  # scheduled daily + monthly sales reports stay in snapshot.yml, untouched.
+
+permissions:
+  contents: read
+
+jobs:
+  sales:
+    name: Sales Report (on demand)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: uv run playwright install --with-deps chromium
+
+      - name: Write Google service-account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Run on-demand sales report
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # /sales passes the channel it was invoked in; else SLACK_CHANNEL_ID.
+          SLACK_CHANNEL_ID: ${{ inputs.channel || secrets.SLACK_CHANNEL_ID }}
+          SPREADSHEET_ID: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
+          GID: "170384010"
+          ONLY_RANKED: "1"
+          REPORT: ${{ inputs.report || 'daily' }}
+        run: |
+          if [ "$REPORT" = "monthly" ]; then
+            RANGE="G1:J50"; TITLE="Monthly Sales Report"
+          else
+            RANGE="B1:E50"; TITLE="Daily Sales Report"
+          fi
+          uv run python scripts/snapshot.py \
+            --spreadsheet-id "$SPREADSHEET_ID" \
+            --gid "$GID" \
+            --range "$RANGE" \
+            --title "$TITLE" \
+            --output slack

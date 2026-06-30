@@ -1,0 +1,23 @@
+# Keep the Vercel deployment tiny: ship only what api/slack.py needs
+# (api/ + app/__init__.py + app/services/__init__.py + app/services/slack_commands.py).
+# Excluding pyproject.toml / uv.lock stops Vercel from installing this repo's heavy
+# report deps (Playwright, Google) into the lightweight listener function.
+.venv/
+.superpowers/
+tests/
+docs/
+scripts/
+.github/
+uv.lock
+pyproject.toml
+README.md
+app/main.py
+app/config.py
+app/routers/
+app/templates/
+app/themes/
+app/services/screenshot.py
+app/services/sheets.py
+app/services/slack.py
+app/services/renderer.py
+app/services/approvals.py
