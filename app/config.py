@@ -75,6 +75,21 @@ class Settings(BaseSettings):
             )
         return dict(zip(keys, parts))
 
+    # --- Sales Analysis charts (scripts/sales_analysis.py) -----------------
+    # Weekly + monthly bar charts re-rendered from the Analysis tab of the sales
+    # workbook (gid 1867438179). Spreadsheet id reuses DEFAULT_SPREADSHEET_ID.
+    sales_analysis_gid: int = Field(default=1867438179, alias="SALES_ANALYSIS_GID")
+    # One fetch covering both blocks: weekly in cols B:E, monthly in cols N:Q.
+    sales_analysis_range: str = Field(default="A1:Q40", alias="SALES_ANALYSIS_RANGE")
+    # Channel the charts post to (defaults to the sales channel SLACK_CHANNEL_ID).
+    sales_analysis_channel_id: Optional[str] = Field(
+        default=None, alias="SALES_ANALYSIS_CHANNEL_ID"
+    )
+    # Optional dedicated Slack bot; falls back to SLACK_BOT_TOKEN when unset.
+    sales_analysis_slack_bot_token: Optional[str] = Field(
+        default=None, alias="SALES_ANALYSIS_SLACK_BOT_TOKEN"
+    )
+
     # --- Skool dashboard report (scripts/skool.py) -------------------------
     # Skool session 'auth_token' cookie value, injected into the browser context (Skool exposes no API).
     skool_auth_token: Optional[str] = Field(

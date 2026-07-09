@@ -86,12 +86,23 @@ def test_parse_sales_default_and_periods():
     assert sc.parse_command("/sales", "monthly", "C9").inputs["report"] == "monthly"
 
 
+def test_parse_salesanalysis_default_and_periods():
+    r = sc.parse_command("/salesanalysis", "", "C7")
+    assert r.workflow == "sales-analysis-ondemand.yml"
+    assert r.inputs == {"report": "weekly", "channel": "C7"}
+    assert "analysis" in r.report_label.lower()
+    assert sc.parse_command("/salesanalysis", "monthly", "C7").inputs["report"] == "monthly"
+
+
 def test_parse_bad_args_raise_usage():
     with pytest.raises(sc.CommandError) as e:
         sc.parse_command("/approvals", "yearly", "C1")
     assert "today" in str(e.value)  # usage lists the valid periods
     with pytest.raises(sc.CommandError):
         sc.parse_command("/sales", "weekly", "C1")
+    with pytest.raises(sc.CommandError) as e2:
+        sc.parse_command("/salesanalysis", "daily", "C1")
+    assert "weekly" in str(e2.value)  # /salesanalysis takes weekly|monthly, not daily
     with pytest.raises(sc.CommandError):
         sc.parse_command("/unknown", "", "C1")
 
@@ -126,6 +137,23 @@ def test_handle_dispatches_on_valid_request():
     assert calls[0]["repo"] == "o/r" and calls[0]["token"] == "ghp"
     assert resp.body["response_type"] == "ephemeral"
     assert "weekly approvals" in resp.body["text"].lower()
+
+
+def test_handle_dispatches_salesanalysis():
+    body = _form(command="/salesanalysis", text="monthly", channel_id="C55")
+    ts = "1700000000"
+    calls = []
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body), "X-Slack-Request-Timestamp": ts},
+        signing_secret=SECRET, github_token="ghp", repo="o/r", now=1700000003,
+        dispatcher=lambda **k: calls.append(k) or 204,
+    )
+    assert resp.status == 200
+    assert len(calls) == 1
+    assert calls[0]["workflow"] == "sales-analysis-ondemand.yml"
+    assert calls[0]["inputs"] == {"report": "monthly", "channel": "C55"}
+    assert "monthly sales analysis" in resp.body["text"].lower()
 
 
 def test_handle_rejects_bad_signature():
