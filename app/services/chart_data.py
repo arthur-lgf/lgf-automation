@@ -46,12 +46,20 @@ _BLOCKS = {
 
 
 def build_analysis_series(
-    values: list[list[str]], kind: str, *, today: date
+    values: list[list[str]],
+    kind: str,
+    *,
+    today: date,
+    current_month_total: float | None = None,
 ) -> list[tuple[str, float]]:
     """Return ``[(label, amount), …]`` for the given block, in sheet order.
 
     ``kind`` is ``"weekly"`` or ``"monthly"``. Rows are included only when their
     Start Date parses and is ``<= today``.
+
+    ``current_month_total`` (monthly only): when given, the in-progress month's
+    amount is replaced by this figure so the chart's current month matches the
+    live Sales Report tab instead of the Analysis tab's own (differing) value.
     """
     try:
         spec = _BLOCKS[kind]
@@ -68,5 +76,33 @@ def build_analysis_series(
         label = _cell(row, spec["label"])
         if not label:
             continue
-        series.append((label, parse_amount(_cell(row, spec["amount"]))))
+        amount = parse_amount(_cell(row, spec["amount"]))
+        if (
+            kind == "monthly"
+            and current_month_total is not None
+            and (start.year, start.month) == (today.year, today.month)
+        ):
+            amount = current_month_total
+        series.append((label, amount))
     return series
+
+
+def sum_ranked_amounts(
+    values: list[list[str]], *, rank_col: int = 0, amount_col: int = 3
+) -> tuple[float, int]:
+    """Grand total of a ranked report block: sum the Amount column of rows whose
+    first cell is a numeric rank. Returns ``(total, ranked_row_count)``.
+
+    Used to read the Sales Report tab's (gid 170384010) current-month total from
+    a ``G1:J50`` fetch (Rank | Name | Qty | Amount) without depending on the
+    shifting position of the printed 'Total amount' row — and it skips the
+    unranked duplicate block below the ranked one.
+    """
+    total = 0.0
+    count = 0
+    for row in values:
+        if not _cell(row, rank_col).isdigit():
+            continue
+        total += parse_amount(_cell(row, amount_col))
+        count += 1
+    return total, count

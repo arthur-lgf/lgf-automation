@@ -76,10 +76,10 @@ _STYLE = (
     "#chart{display:inline-block;background:#07120e;padding:26px;}"
     ".chart-card{background:#0a1f17;border:1px solid #16382c;border-radius:14px;"
     "box-shadow:0 12px 36px rgba(0,0,0,.55);overflow:hidden;font-family:" + _FONT + ";}"
-    ".chart-title{color:#fbbf24;font-weight:800;font-size:40px;line-height:1.2;"
+    ".chart-title{color:#fbbf24;font-weight:800;font-size:43px;line-height:1.2;"
     "text-transform:uppercase;letter-spacing:.06em;text-align:center;"
     "padding:18px 24px;border-bottom:1px solid #ffffff;}"
-    ".chart-sub{color:#a7c3b7;font-size:22px;text-align:center;padding:10px 24px 0;}"
+    ".chart-sub{color:#a7c3b7;font-size:25px;text-align:center;padding:10px 24px 0;}"
 )
 
 
@@ -111,7 +111,7 @@ def _svg(series: list[tuple[str, float]]) -> str:
         )
         parts.append(
             f'<text x="{_LEFT - 14}" y="{y + 8:.1f}" text-anchor="end" '
-            f'font-size="22" fill="#a7c3b7">{_format_money(tick)}</text>'
+            f'font-size="25" fill="#a7c3b7">{_format_money(tick)}</text>'
         )
         tick += step
 
@@ -128,11 +128,11 @@ def _svg(series: list[tuple[str, float]]) -> str:
         )
         parts.append(
             f'<text x="{cx:.1f}" y="{y - 14:.1f}" text-anchor="middle" '
-            f'font-size="24" font-weight="700" fill="#ffffff">{_format_money(value)}</text>'
+            f'font-size="27" font-weight="700" fill="#ffffff">{_format_money(value)}</text>'
         )
         parts.append(
             f'<text x="{cx:.1f}" y="{baseline + 40:.1f}" text-anchor="middle" '
-            f'font-size="24" fill="#cbd5d1">{escape(label)}</text>'
+            f'font-size="27" fill="#cbd5d1">{escape(label)}</text>'
         )
 
     parts.append("</svg>")

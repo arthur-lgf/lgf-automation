@@ -25,7 +25,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.config import get_settings
-from app.services.chart_data import build_analysis_series, gate_allows
+from app.services.chart_data import (
+    build_analysis_series,
+    gate_allows,
+    sum_ranked_amounts,
+)
 from app.services.chart_renderer import render_bar_chart
 from app.services.screenshot import ScreenshotError, snapshot_html
 from app.services.sheets import SheetAccessError, fetch_values
@@ -103,10 +107,35 @@ async def _run(args: argparse.Namespace) -> int:
 
     kinds = ["weekly", "monthly"] if args.kind == "both" else [args.kind]
 
+    # For the monthly chart, source the in-progress month's total from the Sales
+    # Report tab so it matches the live sales report (the Analysis tab's own
+    # current-month figure lags / differs). Best-effort: on any failure we keep
+    # the Analysis-tab value.
+    current_month_total = None
+    if "monthly" in kinds:
+        try:
+            sr_values = fetch_values(
+                spreadsheet_id=spreadsheet_id,
+                range_a1=settings.sales_report_monthly_range,
+                gid=settings.sales_report_gid,
+                source="api",
+                credentials_path=settings.google_application_credentials,
+            )
+            total, ranked = sum_ranked_amounts(sr_values)
+            if ranked:
+                current_month_total = total
+                print(f"Current-month total from Sales Report: ${total:,.2f} ({ranked} reps).")
+            else:
+                print("Sales Report: no ranked rows; keeping Analysis-tab current month.")
+        except SheetAccessError as exc:
+            print(f"::warning::sales_report_fetch_failed: {exc}", file=sys.stderr)
+
     # Render each requested chart that has data.
     images: list[tuple[bytes, str, str]] = []  # (png, filename, kind)
     for kind in kinds:
-        series = build_analysis_series(values, kind, today=today)
+        series = build_analysis_series(
+            values, kind, today=today, current_month_total=current_month_total
+        )
         if not series:
             print(f"No {kind} sales-analysis data; skipping that chart.")
             continue

@@ -89,6 +89,13 @@ class Settings(BaseSettings):
     sales_analysis_slack_bot_token: Optional[str] = Field(
         default=None, alias="SALES_ANALYSIS_SLACK_BOT_TOKEN"
     )
+    # The monthly chart's in-progress month is sourced from the Sales Report tab
+    # (same workbook, gid 170384010) so it matches the live sales report rather
+    # than the Analysis tab's own value. Range is the monthly block (Rank|Name|Qty|Amount).
+    sales_report_gid: int = Field(default=170384010, alias="SALES_REPORT_GID")
+    sales_report_monthly_range: str = Field(
+        default="G1:J50", alias="SALES_REPORT_MONTHLY_RANGE"
+    )
 
     # --- Skool dashboard report (scripts/skool.py) -------------------------
     # Skool session 'auth_token' cookie value, injected into the browser context (Skool exposes no API).

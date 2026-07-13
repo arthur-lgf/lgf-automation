@@ -100,3 +100,48 @@ def test_gate_last_day():
 def test_gate_invalid_raises():
     with pytest.raises(ValueError):
         cd.gate_allows("weekly", date(2026, 7, 1))
+
+
+# --- current-month total from the Sales Report tab ----------------------------
+
+
+def _sales_report() -> list[list[str]]:
+    # gid 170384010 monthly block (cols G:J after a G1:J50 fetch = Rank/Name/Qty/Amount).
+    # A ranked block on top, then an unranked duplicate block that must be ignored.
+    return [
+        ["MONTHLY SALES REPORT"],
+        ["JULY 2026"],
+        ["Rank", "Name", "Qty", "Amount"],
+        ["1", "Dan", "8", "$13,524.00"],
+        ["2", "Eric", "11", "$12,657.00"],
+        ["3", "Joab", "10", "$11,697.00"],
+        ["", "", "", ""],
+        ["", "Dan", "8", "$13,524.00"],   # unranked duplicate — must NOT be summed
+        ["", "Eric", "11", "$12,657.00"],
+    ]
+
+
+def test_sum_ranked_amounts_sums_only_ranked_rows():
+    total, count = cd.sum_ranked_amounts(_sales_report())
+    assert count == 3
+    assert total == 13524.0 + 12657.0 + 11697.0  # 37878.0
+
+
+def test_sum_ranked_amounts_empty_when_no_ranked_rows():
+    assert cd.sum_ranked_amounts([["Rank", "Name", "Qty", "Amount"]]) == (0.0, 0)
+
+
+def test_monthly_series_overrides_current_month_value():
+    series = cd.build_analysis_series(
+        _sheet(), "monthly", today=TODAY, current_month_total=83485.0
+    )
+    by_label = dict(series)
+    assert by_label["Jul 2026"] == 83485.0   # current month replaced (TODAY is July)
+    assert by_label["Jun 2026"] == 223054.0  # prior month untouched
+
+
+def test_current_month_override_ignored_for_weekly():
+    series = cd.build_analysis_series(
+        _sheet(), "weekly", today=TODAY, current_month_total=999.0
+    )
+    assert ("WE 07.11", 23379.0) in series  # weekly unaffected by the override
