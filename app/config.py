@@ -89,9 +89,13 @@ class Settings(BaseSettings):
     sales_analysis_slack_bot_token: Optional[str] = Field(
         default=None, alias="SALES_ANALYSIS_SLACK_BOT_TOKEN"
     )
-    # The monthly chart's in-progress month is sourced from the Sales Report tab
-    # (same workbook, gid 170384010) so it matches the live sales report rather
-    # than the Analysis tab's own value. Range is the monthly block (Rank|Name|Qty|Amount).
+    # When true, the monthly chart's in-progress month is sourced from the Sales
+    # Report tab (same workbook, gid 170384010) instead of the Analysis tab's own
+    # value. Currently OFF — the chart uses the Analysis tab's figure. Flip to
+    # true (or set SALES_REPORT_CURRENT_MONTH_OVERRIDE=1) to re-enable.
+    sales_report_current_month_override: bool = Field(
+        default=False, alias="SALES_REPORT_CURRENT_MONTH_OVERRIDE"
+    )
     sales_report_gid: int = Field(default=170384010, alias="SALES_REPORT_GID")
     sales_report_monthly_range: str = Field(
         default="G1:J50", alias="SALES_REPORT_MONTHLY_RANGE"

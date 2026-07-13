@@ -107,12 +107,13 @@ async def _run(args: argparse.Namespace) -> int:
 
     kinds = ["weekly", "monthly"] if args.kind == "both" else [args.kind]
 
-    # For the monthly chart, source the in-progress month's total from the Sales
-    # Report tab so it matches the live sales report (the Analysis tab's own
-    # current-month figure lags / differs). Best-effort: on any failure we keep
-    # the Analysis-tab value.
+    # Optionally source the monthly chart's in-progress month from the Sales
+    # Report tab so it matches the live sales report. Disabled by default (the
+    # chart uses the Analysis tab's own value); enable via
+    # SALES_REPORT_CURRENT_MONTH_OVERRIDE. Best-effort: any failure keeps the
+    # Analysis-tab value.
     current_month_total = None
-    if "monthly" in kinds:
+    if "monthly" in kinds and settings.sales_report_current_month_override:
         try:
             sr_values = fetch_values(
                 spreadsheet_id=spreadsheet_id,
