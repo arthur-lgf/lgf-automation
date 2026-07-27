@@ -22,14 +22,15 @@ _FONT = (
     '"Helvetica Neue", Arial, sans-serif'
 )
 
-# Layout (CSS px; the screenshot uses device_scale_factor=2 → 2× PNG).
-_PLOT_H = 620
-_BAR_W = 130
-_GAP = 46
-_LEFT = 200   # room for y-axis money labels
-_RIGHT = 44
-_TOP = 52     # room above the tallest bar's value label
-_XLABEL_H = 74
+# Layout (CSS px; the screenshot uses device_scale_factor=2 → 2× PNG). Bars and
+# spacing are sized so the large (~40px) value/category labels don't collide.
+_PLOT_H = 680
+_BAR_W = 165
+_GAP = 60
+_LEFT = 250   # room for the large y-axis money labels
+_RIGHT = 52
+_TOP = 66     # room above the tallest bar's value label
+_XLABEL_H = 92
 
 
 def _format_money(value: float) -> str:
@@ -79,7 +80,7 @@ _STYLE = (
     ".chart-title{color:#fbbf24;font-weight:800;font-size:43px;line-height:1.2;"
     "text-transform:uppercase;letter-spacing:.06em;text-align:center;"
     "padding:18px 24px;border-bottom:1px solid #ffffff;}"
-    ".chart-sub{color:#a7c3b7;font-size:25px;text-align:center;padding:10px 24px 0;}"
+    ".chart-sub{color:#a7c3b7;font-size:34px;text-align:center;padding:12px 24px 0;}"
 )
 
 
@@ -110,8 +111,8 @@ def _svg(series: list[tuple[str, float]]) -> str:
             f'stroke="{stroke}" stroke-width="1"/>'
         )
         parts.append(
-            f'<text x="{_LEFT - 14}" y="{y + 8:.1f}" text-anchor="end" '
-            f'font-size="25" fill="#a7c3b7">{_format_money(tick)}</text>'
+            f'<text x="{_LEFT - 16}" y="{y + 12:.1f}" text-anchor="end" '
+            f'font-size="38" fill="#a7c3b7">{_format_money(tick)}</text>'
         )
         tick += step
 
@@ -127,12 +128,12 @@ def _svg(series: list[tuple[str, float]]) -> str:
             f'height="{bar_h:.1f}" fill="{color}" rx="3"/>'
         )
         parts.append(
-            f'<text x="{cx:.1f}" y="{y - 14:.1f}" text-anchor="middle" '
-            f'font-size="27" font-weight="700" fill="#ffffff">{_format_money(value)}</text>'
+            f'<text x="{cx:.1f}" y="{y - 18:.1f}" text-anchor="middle" '
+            f'font-size="40" font-weight="700" fill="#ffffff">{_format_money(value)}</text>'
         )
         parts.append(
-            f'<text x="{cx:.1f}" y="{baseline + 40:.1f}" text-anchor="middle" '
-            f'font-size="27" fill="#cbd5d1">{escape(label)}</text>'
+            f'<text x="{cx:.1f}" y="{baseline + 58:.1f}" text-anchor="middle" '
+            f'font-size="40" fill="#cbd5d1">{escape(label)}</text>'
         )
 
     parts.append("</svg>")
