@@ -51,6 +51,7 @@ def build_analysis_series(
     *,
     today: date,
     current_month_total: float | None = None,
+    limit: int | None = None,
 ) -> list[tuple[str, float]]:
     """Return ``[(label, amount), …]`` for the given block, in sheet order.
 
@@ -60,6 +61,9 @@ def build_analysis_series(
     ``current_month_total`` (monthly only): when given, the in-progress month's
     amount is replaced by this figure so the chart's current month matches the
     live Sales Report tab instead of the Analysis tab's own (differing) value.
+
+    ``limit`` (weekly): when set, keep only the most recent ``limit`` periods
+    (the tail of the chronological series); ``None`` keeps them all.
     """
     try:
         spec = _BLOCKS[kind]
@@ -84,6 +88,8 @@ def build_analysis_series(
         ):
             amount = current_month_total
         series.append((label, amount))
+    if limit is not None:
+        series = series[-limit:] if limit > 0 else []
     return series
 
 

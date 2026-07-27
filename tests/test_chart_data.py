@@ -145,3 +145,40 @@ def test_current_month_override_ignored_for_weekly():
         _sheet(), "weekly", today=TODAY, current_month_total=999.0
     )
     assert ("WE 07.11", 23379.0) in series  # weekly unaffected by the override
+
+
+# --- limit (weekly: only the most recent N weeks) -----------------------------
+
+
+def _weekly_rows(n: int) -> list[list[str]]:
+    """n weekly rows with chronological start dates all <= TODAY."""
+    from datetime import timedelta
+
+    rows = [_row({1: "Start Date", 2: "End Date", 3: "WE", 4: "SALES"})]
+    base = date(2026, 5, 4)  # well before TODAY (2026-07-09)
+    for i in range(n):
+        start = base + timedelta(days=7 * i)
+        rows.append(_row({
+            1: f"{start.month}/{start.day}/{start.year}",
+            3: f"WE {start.month:02d}.{start.day:02d}",
+            4: f"${1000 * (i + 1)}.00",
+        }))
+    return rows
+
+
+def test_limit_keeps_only_most_recent_weeks():
+    rows = _weekly_rows(8)
+    limited = cd.build_analysis_series(rows, "weekly", today=TODAY, limit=5)
+    full = cd.build_analysis_series(rows, "weekly", today=TODAY)
+    assert len(limited) == 5
+    assert limited == full[-5:]  # the 5 most recent, in order
+
+
+def test_limit_none_returns_all():
+    rows = _weekly_rows(8)
+    assert len(cd.build_analysis_series(rows, "weekly", today=TODAY, limit=None)) == 8
+
+
+def test_limit_larger_than_series_returns_all():
+    rows = _weekly_rows(3)
+    assert len(cd.build_analysis_series(rows, "weekly", today=TODAY, limit=5)) == 3

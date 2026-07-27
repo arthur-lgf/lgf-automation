@@ -134,8 +134,15 @@ async def _run(args: argparse.Namespace) -> int:
     # Render each requested chart that has data.
     images: list[tuple[bytes, str, str]] = []  # (png, filename, kind)
     for kind in kinds:
+        # Weekly is trimmed to the most recent N weeks; monthly shows all.
+        weeks = settings.sales_analysis_weekly_weeks
+        limit = weeks if (kind == "weekly" and weeks > 0) else None
         series = build_analysis_series(
-            values, kind, today=today, current_month_total=current_month_total
+            values,
+            kind,
+            today=today,
+            current_month_total=current_month_total,
+            limit=limit,
         )
         if not series:
             print(f"No {kind} sales-analysis data; skipping that chart.")

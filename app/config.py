@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     sales_analysis_gid: int = Field(default=1867438179, alias="SALES_ANALYSIS_GID")
     # One fetch covering both blocks: weekly in cols B:E, monthly in cols N:Q.
     sales_analysis_range: str = Field(default="A1:Q40", alias="SALES_ANALYSIS_RANGE")
+    # Weekly chart shows only the most recent N weeks (0 = all).
+    sales_analysis_weekly_weeks: int = Field(
+        default=5, alias="SALES_ANALYSIS_WEEKLY_WEEKS"
+    )
     # Channel the charts post to (defaults to the sales channel SLACK_CHANNEL_ID).
     sales_analysis_channel_id: Optional[str] = Field(
         default=None, alias="SALES_ANALYSIS_CHANNEL_ID"
