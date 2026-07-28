@@ -27,8 +27,7 @@ already verifies against `SLACK_SIGNING_SECRET_SALES`, so nothing changes in Ver
    the channel you'll run it in (it is, for the sales report).
 
 ## 2. Scheduled posts (cron-job.org → GitHub Actions)
-cron-job.org can't express "first Monday" / "last day", so the **script** gates the
-cadence; the cron jobs just fire more often and the script no-ops on off days.
+Both cadences are expressed directly in cron-job.org — no script gating needed.
 
 Create **two** cron-job.org jobs (clone an existing one per `docs/SCHEDULING.md` §6–7),
 timezone **America/New_York**, both pointed at:
@@ -40,13 +39,10 @@ Headers: `Accept: application/vnd.github+json`, `Authorization: Bearer <PAT>`,
 
 | Job | Schedule | Request body |
 |---|---|---|
-| First Monday | every **Monday**, ~9:00 AM ET | `{"ref":"main","inputs":{"gate":"first-monday"}}` |
-| Last day | **days 28–31**, ~5:00 PM ET | `{"ref":"main","inputs":{"gate":"last-day"}}` |
+| Weekly | every **Monday**, ~9:00 AM ET | `{"ref":"main","inputs":{"kind":"weekly"}}` |
+| Monthly | **1st of each month**, ~9:00 AM ET | `{"ref":"main","inputs":{"kind":"monthly"}}` |
 
-- *First Monday:* the only Monday with day ≤ 7 — the script posts only then.
-- *Last day:* the script posts only when tomorrow is the 1st (handles 28/29/30/31).
-
-Each run posts **both** charts (weekly + monthly) as one Slack message.
+The Monday job posts the weekly chart; the 1st-of-month job posts the monthly chart.
 
 ## 3. Push `main`
 The two new workflows (`sales-analysis-ondemand.yml`, `sales-analysis-scheduled.yml`)
