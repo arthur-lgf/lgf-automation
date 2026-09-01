@@ -27,6 +27,7 @@ MAX_REQUEST_AGE_SECONDS = 300  # Slack replay-protection window.
 _APPROVALS_PERIODS = ("today", "yesterday", "last-week", "last-month")
 _SALES_REPORTS = ("daily", "monthly")
 _SALES_ANALYSIS_REPORTS = ("weekly", "monthly")
+_SKOOLS_REPORTS = ("daily", "monthly")
 
 _APPROVALS_LABELS = {
     "today": "today's approvals",
@@ -39,6 +40,7 @@ _SALES_ANALYSIS_LABELS = {
     "weekly": "weekly sales analysis",
     "monthly": "monthly sales analysis",
 }
+_SKOOLS_LABELS = {"daily": "daily Skool", "monthly": "monthly Skool"}
 
 
 class CommandError(ValueError):
@@ -121,6 +123,10 @@ def _usage_salesanalysis() -> str:
     return "Usage: `/salesanalysis [weekly|monthly]` (default: weekly)"
 
 
+def _usage_skools() -> str:
+    return "Usage: `/skools [daily|monthly]` (default: daily)"
+
+
 def parse_command(command: str, text: str, channel_id: str) -> CommandResult:
     """Map a slash command + its first arg to the workflow to dispatch.
 
@@ -153,8 +159,15 @@ def parse_command(command: str, text: str, channel_id: str) -> CommandResult:
             {"report": report, "channel": channel_id},
             _SALES_ANALYSIS_LABELS[report],
         )
+    if cmd == "skools":
+        report = arg or "daily"
+        if report not in _SKOOLS_REPORTS:
+            raise CommandError(_usage_skools())
+        return CommandResult(
+            "skools-ondemand.yml", {"report": report, "channel": channel_id}, _SKOOLS_LABELS[report]
+        )
     raise CommandError(
-        f"Unknown command `/{cmd}`. Try `/approvals`, `/sales`, or `/salesanalysis`."
+        f"Unknown command `/{cmd}`. Try `/approvals`, `/sales`, `/salesanalysis`, or `/skools`."
     )
 
 

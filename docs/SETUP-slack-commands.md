@@ -6,12 +6,14 @@ matching GitHub workflow → the report posts back in that channel (~1–2 min).
 ```
 /approvals [today|yesterday|last-week|last-month]   (default: today)
 /sales [daily|monthly]                              (default: daily)
+/salesanalysis [weekly|monthly]                     (default: weekly)
+/skools [daily|monthly]                             (default: daily)
 ```
 
 Nothing generates inside the listener — it only **dispatches the existing
-workflows** (`approvals.yml`, `sales-ondemand.yml`), so all the report code is
-reused. The function (`api/slack.py` + `app/services/slack_commands.py`) is
-standard-library only.
+workflows** (`approvals.yml`, `sales-ondemand.yml`, `sales-analysis-ondemand.yml`,
+`skools-ondemand.yml`), so all the report code is reused. The function
+(`api/slack.py` + `app/services/slack_commands.py`) is standard-library only.
 
 ---
 
@@ -34,7 +36,10 @@ name it → pick your workspace, then:
    |---|---|---|
    | `/approvals` | `https://<your-vercel-app>.vercel.app/api/slack` | `[today\|yesterday\|last-week\|last-month]` |
    | `/sales` | `https://<your-vercel-app>.vercel.app/api/slack` | `[daily\|monthly]` |
+   | `/salesanalysis` | `https://<your-vercel-app>.vercel.app/api/slack` | `[weekly\|monthly]` |
+   | `/skools` | `https://<your-vercel-app>.vercel.app/api/slack` | `[daily\|monthly]` |
    (You'll get the real Vercel URL in step 3 — paste a placeholder now and update after deploy.)
+   `/salesanalysis` and `/skools` can go in the **same Slack app as `/sales`** — no new signing secret needed.
 2. **Basic Information → App Credentials → Signing Secret** → copy it.
 3. **Install App → Install to Workspace.**
 
