@@ -6,12 +6,12 @@ Pure data shaping — no network, no rendering — so it's unit-testable. The ta
   weekly  cols B:E = Start Date | End Date | WE label | SALES
   monthly cols N:Q = Start Date | End Date | MONTH     | SALES
 
-A single ``A1:Q40`` fetch covers both. Weekly rows are in range once the week has
-ENDED (End Date <= today), so "the past N weeks" are completed weeks and the
-in-progress current week (which reads $0 until it ends) is excluded. Monthly rows
-are in range once the month has STARTED (Start Date <= today), keeping the current
-month as a running partial bar. Header/blank rows are skipped naturally because
-their date cell doesn't parse as a date.
+A single ``A1:Q40`` fetch covers both. Each period is COMPLETED (End Date <=
+today), CURRENT (started but not ended), or FUTURE (skipped). Charts show the most
+recent N completed periods; the monthly chart additionally appends the current
+in-progress month when it has data, so it reads as "the past N months + current
+month (if any sales)". The weekly chart shows completed weeks only. Header/blank
+rows are skipped because their date cell doesn't parse as a date.
 """
 from __future__ import annotations
 
@@ -41,14 +41,9 @@ def gate_allows(gate: str, today: date) -> bool:
     raise ValueError(f"gate must be one of {_GATES}; got {gate!r}")
 
 # 0-based column indices within an A1:Q fetch, per block.
-# `filter_on` = which date decides a period is in range:
-#   weekly  -> END date: only COMPLETED weeks show, so "the past N weeks" are the
-#              N most recent finished weeks and the in-progress current week (which
-#              reads $0 until it ends) is excluded.
-#   monthly -> START date: the current in-progress month is kept as a running bar.
 _BLOCKS = {
-    "weekly": {"start": 1, "end": 2, "label": 3, "amount": 4, "filter_on": "end"},   # B,C,D,E
-    "monthly": {"start": 13, "end": 14, "label": 15, "amount": 16, "filter_on": "start"},  # N,O,P,Q
+    "weekly": {"start": 1, "end": 2, "label": 3, "amount": 4},   # B,C,D,E
+    "monthly": {"start": 13, "end": 14, "label": 15, "amount": 16},  # N,O,P,Q
 }
 
 
@@ -62,17 +57,19 @@ def build_analysis_series(
 ) -> list[tuple[str, float]]:
     """Return ``[(label, amount), …]`` for the given block, in sheet order.
 
-    ``kind`` is ``"weekly"`` or ``"monthly"``. A row is in range when its
-    ``filter_on`` date (weekly: END date, monthly: START date) parses and is
-    ``<= today`` — so weekly shows only completed weeks while monthly keeps the
-    current in-progress month.
+    ``kind`` is ``"weekly"`` or ``"monthly"``. Each row is classified by its dates
+    relative to ``today``: COMPLETED (End Date <= today), CURRENT (started but not
+    ended), or FUTURE (Start Date > today, skipped). The series is the most recent
+    ``limit`` COMPLETED periods; for monthly the CURRENT (in-progress) month is
+    then appended when it has data (amount > 0). Weekly never appends the current
+    week, so "the past N weeks" are completed weeks only.
 
-    ``current_month_total`` (monthly only): when given, the in-progress month's
-    amount is replaced by this figure so the chart's current month matches the
-    live Sales Report tab instead of the Analysis tab's own (differing) value.
+    ``current_month_total`` (monthly only): when given, the current month's amount
+    is replaced by this figure so the chart matches the live Sales Report tab
+    instead of the Analysis tab's own (differing) value.
 
-    ``limit`` (weekly): when set, keep only the most recent ``limit`` periods
-    (the tail of the chronological series); ``None`` keeps them all.
+    ``limit``: keep only the most recent ``limit`` completed periods; ``None``
+    keeps them all.
     """
     try:
         spec = _BLOCKS[kind]
@@ -81,24 +78,34 @@ def build_analysis_series(
             f"kind must be one of {tuple(_BLOCKS)}; got {kind!r}"
         ) from exc
 
-    filter_col = spec[spec["filter_on"]]
-    series: list[tuple[str, float]] = []
+    completed: list[tuple[str, float]] = []
+    current: tuple[str, float] | None = None
     for row in values:
-        marker = parse_date(_cell(row, filter_col))
-        if marker is None or marker > today:
+        start = parse_date(_cell(row, spec["start"]))
+        if start is None:  # header/blank row
             continue
         label = _cell(row, spec["label"])
         if not label:
             continue
         amount = parse_amount(_cell(row, spec["amount"]))
-        if kind == "monthly" and current_month_total is not None:
-            start = parse_date(_cell(row, spec["start"]))
-            if start is not None and (start.year, start.month) == (today.year, today.month):
-                amount = current_month_total
-        series.append((label, amount))
+        if (
+            kind == "monthly"
+            and current_month_total is not None
+            and (start.year, start.month) == (today.year, today.month)
+        ):
+            amount = current_month_total
+        end = parse_date(_cell(row, spec["end"]))
+        if end is not None and end <= today:
+            completed.append((label, amount))  # week/month fully ended
+        elif start <= today:
+            current = (label, amount)  # started but not ended = in progress
+        # else: future period -> skip
+
     if limit is not None:
-        series = series[-limit:] if limit > 0 else []
-    return series
+        completed = completed[-limit:] if limit > 0 else []
+    if kind == "monthly" and current is not None and current[1] > 0:
+        completed.append(current)
+    return completed
 
 
 def sum_ranked_amounts(

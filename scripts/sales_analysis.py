@@ -134,9 +134,14 @@ async def _run(args: argparse.Namespace) -> int:
     # Render each requested chart that has data.
     images: list[tuple[bytes, str, str]] = []  # (png, filename, kind)
     for kind in kinds:
-        # Weekly is trimmed to the most recent N weeks; monthly shows all.
-        weeks = settings.sales_analysis_weekly_weeks
-        limit = weeks if (kind == "weekly" and weeks > 0) else None
+        # Each chart keeps the most recent N completed periods (monthly also
+        # appends the current in-progress month when it has data).
+        n = (
+            settings.sales_analysis_weekly_weeks
+            if kind == "weekly"
+            else settings.sales_analysis_monthly_months
+        )
+        limit = n if n > 0 else None
         series = build_analysis_series(
             values,
             kind,

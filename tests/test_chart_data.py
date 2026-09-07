@@ -199,3 +199,46 @@ def test_limit_none_returns_all():
 def test_limit_larger_than_series_returns_all():
     rows = _weekly_rows(3)
     assert len(cd.build_analysis_series(rows, "weekly", today=TODAY, limit=5)) == 3
+
+
+# --- monthly: past N completed months + current month if it has data ----------
+
+SEP7 = date(2026, 9, 7)
+
+
+def _monthly_rows(sep_amount: str) -> list[list[str]]:
+    """Feb–Sep 2026 in cols N:Q; Sep is the in-progress current month (as of SEP7)."""
+    data = [
+        ("2/1/2026", "2/28/2026", "Feb 2026", "$98,208.00"),
+        ("3/1/2026", "3/31/2026", "Mar 2026", "$140,444.00"),
+        ("4/1/2026", "4/30/2026", "Apr 2026", "$215,631.00"),
+        ("5/1/2026", "5/31/2026", "May 2026", "$178,015.00"),
+        ("6/1/2026", "6/30/2026", "Jun 2026", "$218,859.00"),
+        ("7/1/2026", "7/31/2026", "Jul 2026", "$232,815.00"),
+        ("8/1/2026", "8/31/2026", "Aug 2026", "$224,579.00"),
+        ("9/1/2026", "9/30/2026", "Sep 2026", sep_amount),  # current month
+    ]
+    rows = [_row({13: "Start Date", 14: "End Date", 15: "MONTH", 16: "SALES"})]
+    for start, end, month, amount in data:
+        rows.append(_row({13: start, 14: end, 15: month, 16: amount}))
+    return rows
+
+
+def test_monthly_past_5_completed_plus_current_with_data():
+    series = cd.build_analysis_series(
+        _monthly_rows("$35,662.00"), "monthly", today=SEP7, limit=5
+    )
+    assert [label for label, _ in series] == [
+        "Apr 2026", "May 2026", "Jun 2026", "Jul 2026", "Aug 2026", "Sep 2026",
+    ]
+    assert series[-1] == ("Sep 2026", 35662.0)  # current month appended (has data)
+
+
+def test_monthly_drops_current_month_when_zero():
+    series = cd.build_analysis_series(
+        _monthly_rows("$0.00"), "monthly", today=SEP7, limit=5
+    )
+    assert [label for label, _ in series] == [
+        "Apr 2026", "May 2026", "Jun 2026", "Jul 2026", "Aug 2026",
+    ]
+    assert "Sep 2026" not in [label for label, _ in series]  # no data -> excluded
