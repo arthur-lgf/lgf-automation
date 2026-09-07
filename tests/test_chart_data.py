@@ -10,7 +10,9 @@ import pytest
 
 from app.services import chart_data as cd
 
-TODAY = date(2026, 7, 9)
+# After every fixture week's End Date except the future WE 07.18 (ends 7/18), so
+# weekly (filtered on End date) includes WE 06.13/07.04/07.11 and drops 07.18.
+TODAY = date(2026, 7, 15)
 
 
 def _row(pairs: dict) -> list:
@@ -59,6 +61,19 @@ def test_future_periods_are_dropped():
     monthly = cd.build_analysis_series(_sheet(), "monthly", today=TODAY)
     assert "WE 07.18" not in [label for label, _ in weekly]  # start 7/12 > today
     assert "Aug 2026" not in [label for label, _ in monthly]  # start 8/1 > today
+
+
+def test_weekly_excludes_in_progress_week_not_yet_ended():
+    # The current week has STARTED but not ENDED (end date in the future) and
+    # reads $0 — it must be excluded so "the past N weeks" are completed weeks.
+    rows = [
+        _row({1: "Start Date", 2: "End Date", 3: "WE", 4: "SALES"}),
+        _row({1: "8/2/2026", 2: "8/8/2026", 3: "WE 08.08", 4: "$59,592.00"}),
+        _row({1: "8/9/2026", 2: "8/15/2026", 3: "WE 08.15", 4: "$41,018.00"}),
+        _row({1: "9/6/2026", 2: "9/12/2026", 3: "WE 09.12", 4: "$0.00"}),  # in progress
+    ]
+    series = cd.build_analysis_series(rows, "weekly", today=date(2026, 9, 7))
+    assert [label for label, _ in series] == ["WE 08.08", "WE 08.15"]
 
 
 def test_header_and_blank_rows_are_skipped():
@@ -155,12 +170,14 @@ def _weekly_rows(n: int) -> list[list[str]]:
     from datetime import timedelta
 
     rows = [_row({1: "Start Date", 2: "End Date", 3: "WE", 4: "SALES"})]
-    base = date(2026, 5, 4)  # well before TODAY (2026-07-09)
+    base = date(2026, 5, 4)  # weeks well before TODAY (2026-07-15)
     for i in range(n):
         start = base + timedelta(days=7 * i)
+        end = start + timedelta(days=6)  # weekly is filtered on the End date
         rows.append(_row({
             1: f"{start.month}/{start.day}/{start.year}",
-            3: f"WE {start.month:02d}.{start.day:02d}",
+            2: f"{end.month}/{end.day}/{end.year}",
+            3: f"WE {end.month:02d}.{end.day:02d}",
             4: f"${1000 * (i + 1)}.00",
         }))
     return rows

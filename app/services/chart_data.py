@@ -6,10 +6,12 @@ Pure data shaping — no network, no rendering — so it's unit-testable. The ta
   weekly  cols B:E = Start Date | End Date | WE label | SALES
   monthly cols N:Q = Start Date | End Date | MONTH     | SALES
 
-A single ``A1:Q40`` fetch covers both. We drop any period whose Start Date is
-after ``today`` so the current partial week/month is kept but future ``$0.00``
-placeholder rows are excluded (matching the Google chart). Header/blank rows are
-skipped naturally because their Start-Date cell doesn't parse as a date.
+A single ``A1:Q40`` fetch covers both. Weekly rows are in range once the week has
+ENDED (End Date <= today), so "the past N weeks" are completed weeks and the
+in-progress current week (which reads $0 until it ends) is excluded. Monthly rows
+are in range once the month has STARTED (Start Date <= today), keeping the current
+month as a running partial bar. Header/blank rows are skipped naturally because
+their date cell doesn't parse as a date.
 """
 from __future__ import annotations
 
@@ -39,9 +41,14 @@ def gate_allows(gate: str, today: date) -> bool:
     raise ValueError(f"gate must be one of {_GATES}; got {gate!r}")
 
 # 0-based column indices within an A1:Q fetch, per block.
+# `filter_on` = which date decides a period is in range:
+#   weekly  -> END date: only COMPLETED weeks show, so "the past N weeks" are the
+#              N most recent finished weeks and the in-progress current week (which
+#              reads $0 until it ends) is excluded.
+#   monthly -> START date: the current in-progress month is kept as a running bar.
 _BLOCKS = {
-    "weekly": {"start": 1, "label": 3, "amount": 4},   # B, D, E
-    "monthly": {"start": 13, "label": 15, "amount": 16},  # N, P, Q
+    "weekly": {"start": 1, "end": 2, "label": 3, "amount": 4, "filter_on": "end"},   # B,C,D,E
+    "monthly": {"start": 13, "end": 14, "label": 15, "amount": 16, "filter_on": "start"},  # N,O,P,Q
 }
 
 
@@ -55,8 +62,10 @@ def build_analysis_series(
 ) -> list[tuple[str, float]]:
     """Return ``[(label, amount), …]`` for the given block, in sheet order.
 
-    ``kind`` is ``"weekly"`` or ``"monthly"``. Rows are included only when their
-    Start Date parses and is ``<= today``.
+    ``kind`` is ``"weekly"`` or ``"monthly"``. A row is in range when its
+    ``filter_on`` date (weekly: END date, monthly: START date) parses and is
+    ``<= today`` — so weekly shows only completed weeks while monthly keeps the
+    current in-progress month.
 
     ``current_month_total`` (monthly only): when given, the in-progress month's
     amount is replaced by this figure so the chart's current month matches the
@@ -72,21 +81,20 @@ def build_analysis_series(
             f"kind must be one of {tuple(_BLOCKS)}; got {kind!r}"
         ) from exc
 
+    filter_col = spec[spec["filter_on"]]
     series: list[tuple[str, float]] = []
     for row in values:
-        start = parse_date(_cell(row, spec["start"]))
-        if start is None or start > today:
+        marker = parse_date(_cell(row, filter_col))
+        if marker is None or marker > today:
             continue
         label = _cell(row, spec["label"])
         if not label:
             continue
         amount = parse_amount(_cell(row, spec["amount"]))
-        if (
-            kind == "monthly"
-            and current_month_total is not None
-            and (start.year, start.month) == (today.year, today.month)
-        ):
-            amount = current_month_total
+        if kind == "monthly" and current_month_total is not None:
+            start = parse_date(_cell(row, spec["start"]))
+            if start is not None and (start.year, start.month) == (today.year, today.month):
+                amount = current_month_total
         series.append((label, amount))
     if limit is not None:
         series = series[-limit:] if limit > 0 else []
