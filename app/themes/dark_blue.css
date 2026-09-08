@@ -1,0 +1,129 @@
+/* Blue / dark-blue variant of dark_green. Body text 25pt; headers 23pt. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 20px;
+  background: #050e1c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  color: #ffffff;
+  font-size: 25pt;
+}
+
+table.report {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 560px;
+  background: #0a1c33;
+  border: 1px solid #1c3a5e;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+  font-size: 25pt;
+  line-height: 1.2;
+}
+
+/* Title bar (single-cell merged headers) */
+table.report tr.title-row td {
+  background: #0a1c33;
+  color: #60a5fa;
+  font-weight: 800;
+  font-size: 25pt;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ffffff;
+}
+
+/* Column header row */
+table.report tr.header-row th {
+  background: #0a1c33;
+  color: #93c5fd;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 23pt;
+  line-height: 1.05;
+  padding: 9px 16px;
+  border-bottom: 1px solid #ffffff;
+  text-align: center;
+  vertical-align: middle;
+  white-space: pre-line;  /* honor the \n in two-word headers */
+}
+
+/* Data rows */
+table.report tr.data-row td {
+  background: #123a63;
+  padding: 8px 16px;
+  border-bottom: 1px solid #ffffff;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 25pt;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.05;
+  white-space: pre-line;  /* honor \n (e.g. multi-word bank names break to lines) */
+}
+
+/* AMOUNT is the last column — align its figures to the right edge */
+table.report tr.data-row td:last-child {
+  text-align: right;
+}
+
+/* Amount-shaped values */
+table.report td.amount {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 25pt;
+  color: #ffffff;
+}
+
+/* Spacer rows preserve vertical gaps from the sheet */
+table.report tr.spacer-row td {
+  background: #0a1c33;
+  padding: 6px 0;
+  border: none;
+  height: 10px;
+}
+
+/* Totals strip */
+table.report tr.totals-row td {
+  background: #0a1c33;
+  color: #60a5fa;
+  font-weight: 800;
+  padding: 11px 16px;
+  border-top: 1px solid #ffffff;
+  border-bottom: 1px solid #ffffff;
+  font-size: 25pt;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+table.report tr.totals-row td.totals-label-cell {
+  text-align: left;
+  padding-left: 16px;
+}
+table.report tr.totals-row td.totals-value-cell {
+  text-align: right;
+  padding-right: 16px;
+}
+table.report tr.totals-row td.totals-merged {
+  text-align: center;
+}
+table.report tr.totals-row td.amount {
+  color: #60a5fa;
+  font-size: 25pt;
+}
+table.report tr.totals-row + tr.totals-row td {
+  border-top: none;
+}
+
+/* Trim final border on the last row */
+table.report tr:last-child td {
+  border-bottom: none;
+}
