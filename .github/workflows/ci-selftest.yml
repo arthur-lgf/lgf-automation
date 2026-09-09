@@ -1,0 +1,48 @@
+name: CI Self-Test (temp)
+
+# TEMPORARY verification harness: exercises the same runner setup as the report
+# workflows (checkout@v5 -> setup-uv@v6 -> uv sync -> hardened Playwright install)
+# plus a headless-Chromium launch, with NO secrets / Slack / sheets. Used once to
+# confirm the Ubuntu-24.04 / Google-apt-repo fix, then deleted.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: |
+          # Same hardening as the report workflows: drop the flaky Google Chrome
+          # apt repo, then install with retries.
+          sudo rm -f /etc/apt/sources.list.d/*google* 2>/dev/null || true
+          for attempt in 1 2 3; do
+            uv run playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
+
+      - name: Smoke-check Chromium launches
+        run: |
+          uv run python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); pg=b.new_page(); pg.set_content('<h1>ok</h1>'); print('chromium OK title:', pg.title() or 'ok'); b.close(); p.stop()"
