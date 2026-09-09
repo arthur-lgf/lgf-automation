@@ -25,10 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
@@ -40,7 +40,20 @@ jobs:
         run: uv sync --no-dev
 
       - name: Install Playwright Chromium (with system deps)
-        run: uv run playwright install --with-deps chromium
+        run: |
+          # GitHub's ubuntu-24.04 runner ships a Google Chrome apt repo that
+          # intermittently returns "Hash Sum mismatch", making the apt-get update
+          # inside `--with-deps` fail with exit 100. We use Playwright's bundled
+          # Chromium (not Google Chrome), so drop that repo, then install with a
+          # few retries to ride out transient apt mirror hiccups.
+          sudo rm -f /etc/apt/sources.list.d/*google* 2>/dev/null || true
+          for attempt in 1 2 3; do
+            uv run playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
 
       - name: Run Skool dashboard report
         env:
