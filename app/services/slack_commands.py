@@ -40,6 +40,11 @@ _SALES_ANALYSIS_LABELS = {
     "weekly": "weekly sales analysis",
     "monthly": "monthly sales analysis",
 }
+_APPROVALS_ANALYSIS_REPORTS = ("weekly", "monthly")
+_APPROVALS_ANALYSIS_LABELS = {
+    "weekly": "weekly approvals analysis",
+    "monthly": "monthly approvals analysis",
+}
 _SKOOLS_LABELS = {"daily": "daily Skool", "monthly": "monthly Skool"}
 
 
@@ -123,6 +128,10 @@ def _usage_salesanalysis() -> str:
     return "Usage: `/salesanalysis [weekly|monthly]` (default: weekly)"
 
 
+def _usage_approvalsanalysis() -> str:
+    return "Usage: `/approvalsanalysis [weekly|monthly]` (default: weekly)"
+
+
 def _usage_skools() -> str:
     return "Usage: `/skools [daily|monthly]` (default: daily)"
 
@@ -159,6 +168,15 @@ def parse_command(command: str, text: str, channel_id: str) -> CommandResult:
             {"report": report, "channel": channel_id},
             _SALES_ANALYSIS_LABELS[report],
         )
+    if cmd == "approvalsanalysis":
+        report = arg or "weekly"
+        if report not in _APPROVALS_ANALYSIS_REPORTS:
+            raise CommandError(_usage_approvalsanalysis())
+        return CommandResult(
+            "approvals-analysis-ondemand.yml",
+            {"report": report, "channel": channel_id},
+            _APPROVALS_ANALYSIS_LABELS[report],
+        )
     if cmd == "skools":
         report = arg or "daily"
         if report not in _SKOOLS_REPORTS:
@@ -167,7 +185,8 @@ def parse_command(command: str, text: str, channel_id: str) -> CommandResult:
             "skools-ondemand.yml", {"report": report, "channel": channel_id}, _SKOOLS_LABELS[report]
         )
     raise CommandError(
-        f"Unknown command `/{cmd}`. Try `/approvals`, `/sales`, `/salesanalysis`, or `/skools`."
+        f"Unknown command `/{cmd}`. Try `/approvals`, `/sales`, `/salesanalysis`, "
+        f"`/approvalsanalysis`, or `/skools`."
     )
 
 
