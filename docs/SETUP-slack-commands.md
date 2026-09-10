@@ -1,4 +1,4 @@
-# On-demand reports from Slack (`/approvals`, `/sales`)
+# On-demand reports from Slack slash commands
 
 Type a slash command in Slack → a tiny Vercel function verifies it and fires the
 matching GitHub workflow → the report posts back in that channel (~1–2 min).
@@ -12,8 +12,9 @@ matching GitHub workflow → the report posts back in that channel (~1–2 min).
 ```
 
 Nothing generates inside the listener — it only **dispatches the existing
-workflows** (`approvals.yml`, `approvals-analysis-ondemand.yml`, `sales-ondemand.yml`,
-`sales-analysis-ondemand.yml`, `skools-ondemand.yml`), so all the report code is reused. The function
+workflows** (`approvals.yml`, `approvals-analysis-ondemand.yml`,
+`sales-ondemand.yml`, `sales-analysis-ondemand.yml`,
+`skools-ondemand.yml`), so all the report code is reused. The function
 (`api/slack.py` + `app/services/slack_commands.py`) is standard-library only.
 
 ---

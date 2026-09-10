@@ -25,6 +25,7 @@ _SIG_VERSION = "v0"
 MAX_REQUEST_AGE_SECONDS = 300  # Slack replay-protection window.
 
 _APPROVALS_PERIODS = ("today", "yesterday", "last-week", "last-month")
+_APPROVALS_ANALYSIS_REPORTS = ("weekly", "monthly")
 _SALES_REPORTS = ("daily", "monthly")
 _SALES_ANALYSIS_REPORTS = ("weekly", "monthly")
 _SKOOLS_REPORTS = ("daily", "monthly")
@@ -40,7 +41,6 @@ _SALES_ANALYSIS_LABELS = {
     "weekly": "weekly sales analysis",
     "monthly": "monthly sales analysis",
 }
-_APPROVALS_ANALYSIS_REPORTS = ("weekly", "monthly")
 _APPROVALS_ANALYSIS_LABELS = {
     "weekly": "weekly approvals analysis",
     "monthly": "monthly approvals analysis",

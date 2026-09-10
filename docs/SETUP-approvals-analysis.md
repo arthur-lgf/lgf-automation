@@ -67,6 +67,9 @@ exist on `main` before dispatch / cron-job.org will 204.
 - **Data:** APPS `Date Approved` + amount. Weekly = last 6 completed Mon–Sun
   weeks (`WE MM.DD`). Monthly = last 5 completed months + current month if it
   has approvals (`Apr 2026`).
+- **Slack scopes:** the approvals bot token (`APPROVALS_SLACK_BOT_TOKEN`, with
+  fallback `SLACK_BOT_TOKEN`) must have both `files:write` and `chat:write`.
+  Empty-data text uses `chat.postMessage`.
 - **No new secrets:** reuses `APPROVALS_SLACK_BOT_TOKEN` / `APPROVALS_CHANNEL_ID`
   (fallback `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID`), `GOOGLE_SERVICE_ACCOUNT_JSON`,
   and the existing GitHub PAT / Slack signing secret.
