@@ -271,7 +271,8 @@ def handle_slash_request(
         for secret in secrets
     )
     if not verified:
-        return HandlerResponse(401, _ephemeral("Signature verification failed."))
+        # Slack slash commands treat any non-200 as "app did not respond".
+        return HandlerResponse(200, _ephemeral("Signature verification failed."))
 
     decoded = raw_body.decode("utf-8") if isinstance(raw_body, bytes) else raw_body
     form = urllib.parse.parse_qs(decoded)

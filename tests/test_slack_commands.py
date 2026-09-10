@@ -250,7 +250,8 @@ def test_handle_rejects_bad_signature():
         signing_secret=SECRET, github_token="g", repo="o/r", now=1700000003,
         dispatcher=lambda **k: called.append(k) or 204,
     )
-    assert resp.status == 401
+    assert resp.status == 200
+    assert "signature" in resp.body["text"].lower()
     assert not called
 
 
@@ -343,7 +344,8 @@ def test_handle_rejects_signature_from_an_unconfigured_secret():
         signing_secret=[SECRET, SALES_SECRET], github_token="g", repo="o/r",
         now=1700000003, dispatcher=lambda **k: called.append(k) or 204,
     )
-    assert resp.status == 401
+    assert resp.status == 200
+    assert "signature" in resp.body["text"].lower()
     assert not called
 
 
@@ -372,4 +374,5 @@ def test_handle_rejects_when_no_secrets_configured():
         signing_secret=["", None], github_token="g", repo="o/r", now=1700000003,
         dispatcher=lambda **k: 204,
     )
-    assert resp.status == 401
+    assert resp.status == 200
+    assert "signature" in resp.body["text"].lower()
