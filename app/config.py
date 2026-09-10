@@ -75,6 +75,16 @@ class Settings(BaseSettings):
             )
         return dict(zip(keys, parts))
 
+    # --- Approvals Analysis charts (scripts/approvals_analysis.py) ----------
+    # Weekly + monthly bar charts aggregated from the APPS tab (same sheet as
+    # the tables). Mirrors SALES_ANALYSIS_WEEKLY_WEEKS / _MONTHLY_MONTHS.
+    approvals_analysis_weekly_weeks: int = Field(
+        default=6, alias="APPROVALS_ANALYSIS_WEEKLY_WEEKS"
+    )
+    approvals_analysis_monthly_months: int = Field(
+        default=5, alias="APPROVALS_ANALYSIS_MONTHLY_MONTHS"
+    )
+
     # --- Sales Analysis charts (scripts/sales_analysis.py) -----------------
     # Weekly + monthly bar charts re-rendered from the Analysis tab of the sales
     # workbook (gid 1867438179). Spreadsheet id reuses DEFAULT_SPREADSHEET_ID.
