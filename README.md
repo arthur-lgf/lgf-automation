@@ -78,6 +78,20 @@ curl -s "http://localhost:8000/reports/approvals?output=image&date=6/15/2026" -o
 curl -fsS --max-time 120 "http://localhost:8000/reports/approvals?output=slack"
 ```
 
+## Approvals analysis (weekly / monthly bar charts)
+
+Same look and shipping path as Sales Analysis. See
+[docs/SETUP-approvals-analysis.md](docs/SETUP-approvals-analysis.md).
+
+```bash
+uv run python scripts/approvals_analysis.py --kind both --output file
+uv run python scripts/approvals_analysis.py --kind weekly --output slack
+```
+
+On demand: `/approvalsanalysis [weekly|monthly]`. Scheduled via
+[cron-job.org](https://cron-job.org/) (Monday weekly, 1st-of-month monthly)
+hitting `approvals-analysis-scheduled.yml`.
+
 ## Local setup (uv)
 
 ```bash

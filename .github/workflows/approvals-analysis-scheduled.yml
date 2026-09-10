@@ -1,0 +1,70 @@
+name: Approvals Analysis (scheduled)
+
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "Which chart(s) to post"
+        required: false
+        type: choice
+        default: "both"
+        options:
+          - weekly
+          - monthly
+          - both
+      gate:
+        description: "Optional cadence guard evaluated in ET (usually none)"
+        required: false
+        type: choice
+        default: "none"
+        options:
+          - none
+          - first-monday
+          - last-day
+  # No in-workflow schedule. Two cron-job.org jobs hit this workflow's
+  # workflow_dispatch REST endpoint (see docs/SETUP-approvals-analysis.md):
+  #   - every Monday      -> inputs.kind = weekly
+  #   - 1st of each month -> inputs.kind = monthly
+  # Both cadences are expressed directly in cron-job.org, so gate stays 'none'.
+
+permissions:
+  contents: read
+
+jobs:
+  approvals-analysis:
+    name: Approvals Analysis (scheduled)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: uv run playwright install --with-deps chromium
+
+      - name: Write Google service-account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Run scheduled approvals-analysis charts
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.APPROVALS_SLACK_BOT_TOKEN || secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.APPROVALS_CHANNEL_ID || secrets.SLACK_CHANNEL_ID }}
+          KIND: ${{ inputs.kind || 'both' }}
+          GATE: ${{ inputs.gate || 'none' }}
+        run: |
+          uv run python scripts/approvals_analysis.py --kind "$KIND" --gate "$GATE" --output slack
