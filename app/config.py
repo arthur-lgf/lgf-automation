@@ -4,10 +4,15 @@ from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(
+            _REPO_ROOT / ".env",
+            _REPO_ROOT / "secrets" / ".env",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -19,6 +24,15 @@ class Settings(BaseSettings):
 
     slack_bot_token: Optional[str] = Field(default=None, alias="SLACK_BOT_TOKEN")
     slack_channel_id: Optional[str] = Field(default=None, alias="SLACK_CHANNEL_ID")
+    # Dedicated Gold Slack app bot (https://api.slack.com/apps/A0C11GQ6ESE).
+    # Falls back to SLACK_BOT_TOKEN when unset.
+    gold_slack_bot_token: Optional[str] = Field(
+        default=None, alias="GOLD_SLACK_BOT_TOKEN"
+    )
+    gold_channel_id: str = Field(default="C0ATW4FSK0X", alias="GOLD_CHANNEL_ID")
+    gold_extra_channel_id: str = Field(
+        default="C0BFN82DDLN", alias="GOLD_EXTRA_CHANNEL_ID"
+    )
 
     default_spreadsheet_id: Optional[str] = Field(
         default="12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k",

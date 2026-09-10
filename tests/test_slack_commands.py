@@ -290,6 +290,29 @@ def test_handle_dispatch_failure_is_reported_not_raised():
 # --- multiple signing secrets (two Slack apps) --------------------------------
 
 SALES_SECRET = "11aa22bb33cc44dd55ee66ff77001122"
+GOLD_SECRET = "aa11bb22cc33dd44ee55ff6677889900"
+
+
+def test_handle_accepts_request_signed_with_gold_app_secret():
+    body = _form(command="/gold", text="monthly", channel_id="C1")
+    ts = "1700000000"
+    calls = []
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body, GOLD_SECRET),
+                 "X-Slack-Request-Timestamp": ts},
+        signing_secret=[SECRET, SALES_SECRET, GOLD_SECRET], github_token="g",
+        repo="o/r", now=1700000003,
+        dispatcher=lambda **k: calls.append(k) or 204,
+    )
+    assert resp.status == 200
+    assert len(calls) == 1 and calls[0]["workflow"] == "gold-ondemand.yml"
+
+
+def test_listener_includes_gold_signing_secret():
+    from pathlib import Path
+    text = Path("api/slack.py").read_text()
+    assert "SLACK_SIGNING_SECRET_GOLD" in text
 
 
 def test_handle_accepts_request_signed_with_either_secret():

@@ -11,10 +11,10 @@ posted to Slack. Same look and pipeline as `/sales monthly`.
   command was run from.
 - Scheduled via dedicated [cron-job.org](https://cron-job.org/) jobs at
   **12:30 PM ET** and **5:00 PM ET** daily hitting `gold-ondemand.yml` (not
-  `snapshot.yml`). Posts to `SLACK_CHANNEL_ID` and also to `C0BFN82DDLN`.
+  `snapshot.yml`). Posts to Gold channels `C0ATW4FSK0X` and `C0BFN82DDLN`.
 - Source is columns **V–Y** on the Sales Report tab (gid `170384010`) of
   spreadsheet `12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k`.
-- Visual match: `dark_green` ranked table (same as `/sales`), title
+- Visual match: `gold` ranked table (sheet Gold block, not sales green), title
   **Monthly Gold Report**.
 
 ## Non-goals
@@ -30,13 +30,13 @@ posted to Slack. Same look and pipeline as `/sales monthly`.
 /gold monthly
         → Vercel /api/slack  (existing listener, sales signing secret)
         → GitHub gold-ondemand.yml
-        → scripts/snapshot.py  (unchanged)
-        → Slack PNG in the invoking channel
+        → scripts/gold.py
+        → Slack PNG in the invoking channel (+ C0ATW4FSK0X, C0BFN82DDLN)
 
 cron-job.org Gold jobs (12:30 PM ET / 5:00 PM ET daily)
         → GitHub gold-ondemand.yml
-        → scripts/snapshot.py
-        → Slack PNG in SLACK_CHANNEL_ID and C0BFN82DDLN
+        → scripts/gold.py
+        → Slack PNG in C0ATW4FSK0X and C0BFN82DDLN
 ```
 
 ## Sheet
@@ -47,7 +47,7 @@ cron-job.org Gold jobs (12:30 PM ET / 5:00 PM ET daily)
 | GID | `170384010` (Sales Report tab) |
 | Range | `V1:Y50` |
 | `ONLY_RANKED` | `1` |
-| Theme | `dark_green` |
+| Theme | `gold` |
 | Title | Monthly Gold Report |
 
 Row 50 matches Daily/Monthly Sales and Skool blocks so totals below the ranked
@@ -62,22 +62,23 @@ rows are included.
 - Workflow: `gold-ondemand.yml`
 - Inputs: `{"report": "monthly", "channel": <invoking channel>}`
 - Ack: ephemeral “Generating the *monthly gold* report…”
-- Lives in the **Sales Slack app** (same Request URL as `/sales`).
-- Posts with the existing sales bot (`SLACK_BOT_TOKEN` / `@lgf_sales_report_bot`).
+- Lives in the **Gold Slack app** [`A0C11GQ6ESE`](https://api.slack.com/apps/A0C11GQ6ESE)
+  (`SLACK_SIGNING_SECRET_GOLD`).
+- Posts with `GOLD_SLACK_BOT_TOKEN` (fallback `SLACK_BOT_TOKEN`).
 
-Empty ranked data uses the existing snapshot.py text
-“No sales to report for Monthly Gold Report …”.
+Empty ranked data uses `scripts/gold.py` text
+“No gold to report for Monthly Gold Report …”.
 
 ## Files
 
-- Create: `.github/workflows/gold-ondemand.yml` (clone of `sales-ondemand.yml`)
+- Create: `.github/workflows/gold-ondemand.yml`, `scripts/gold.py`
 - Modify: `app/services/slack_commands.py`, `tests/test_slack_commands.py`,
   `docs/SETUP-slack-commands.md`
 
 ## Operator step (not code)
 
-Create `/gold` at https://api.slack.com/apps → Sales app → Slash Commands.
+Create `/gold` at https://api.slack.com/apps/A0C11GQ6ESE → Slash Commands.
 
-| Command | Request URL | Usage hint |
-|---|---|---|
-| `/gold` | `https://lgf-automation.vercel.app/api/slack` | `[monthly]` |
+| Command | Request URL | Short description | Usage hint |
+|---|---|---|---|
+| `/gold` | `https://lgf-automation.vercel.app/api/slack` | Monthly Gold Report | `[monthly]` |

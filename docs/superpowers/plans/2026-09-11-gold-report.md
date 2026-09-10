@@ -4,17 +4,17 @@
 
 **Goal:** Add `/gold [monthly]` so Slack posts the V:Y Gold Report table PNG from the Sales Report tab.
 
-**Architecture:** Clone `sales-ondemand.yml`. Reuse `scripts/snapshot.py`. Wire `/gold` in `slack_commands.py` like `/skools`. No new Python service.
+**Architecture:** Clone `sales-ondemand.yml`. Dedicated `scripts/gold.py` (monthly V:Y only; dual Slack channels). Wire `/gold` in `slack_commands.py` like `/skools`.
 
-**Tech Stack:** Python 3.11, pytest, GitHub Actions `workflow_dispatch`, Vercel `/api/slack`, existing `scripts/snapshot.py`.
+**Tech Stack:** Python 3.11, pytest, GitHub Actions `workflow_dispatch`, Vercel `/api/slack`, `scripts/gold.py`.
 
 ## Global Constraints
 
 - Spreadsheet `12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k`, gid `170384010`, range `V1:Y50`.
-- Theme `dark_green`, `ONLY_RANKED=1`, title `Monthly Gold Report`.
+- Theme `gold`, `ONLY_RANKED=1`, title `Monthly Gold Report`.
 - On demand only; `/gold` and `/gold monthly` valid; `/gold daily` usage error.
 - Do not modify `scripts/snapshot.py` or `snapshot.yml`.
-- No new secrets. Same Sales Slack app and sales bot.
+- `/gold` uses dedicated Slack app `A0C11GQ6ESE` (`SLACK_SIGNING_SECRET_GOLD`, `GOLD_SLACK_BOT_TOKEN`).
 
 ---
 
@@ -24,7 +24,8 @@
 |---|---|
 | `tests/test_slack_commands.py` | `/gold` parse + dispatch tests |
 | `app/services/slack_commands.py` | `/gold` → `gold-ondemand.yml` |
-| `.github/workflows/gold-ondemand.yml` | Clone of sales-ondemand; hardcode V:Y |
+| `.github/workflows/gold-ondemand.yml` | Clone of sales-ondemand; calls `scripts/gold.py` |
+| `scripts/gold.py` | Monthly Gold only (V1:Y50); posts to C0ATW4FSK0X + C0BFN82DDLN |
 | `docs/SETUP-slack-commands.md` | Command list + Slack app create-command row |
 
 ---

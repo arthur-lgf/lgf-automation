@@ -126,6 +126,14 @@ def test_render_default_theme_is_dark_green_and_inlines_css():
     assert 'class="amount"' in html
 
 
+def test_render_gold_theme_matches_sheet_gold_not_sales_green():
+    html = render(_values(), theme="gold")
+    assert "#4ade80" not in html  # sales green headers
+    assert "#103a2c" not in html  # sales green data rows
+    assert "#f1c232" in html  # sheet gold accent
+    assert "#8f6f12" in html  # gold data rows
+
+
 def test_render_dark_gold_theme_still_available():
     html = render(_values(), theme="dark_gold")
     assert "#b91c1c" in html  # red title bar

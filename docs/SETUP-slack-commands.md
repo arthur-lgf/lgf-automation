@@ -45,15 +45,16 @@ name it → pick your workspace, then:
    | `/skools` | `https://<your-vercel-app>.vercel.app/api/slack` | `[daily\|monthly]` |
    (You'll get the real Vercel URL in step 3 — paste a placeholder now and update after deploy.)
    `/approvalsanalysis` goes in the **same Slack app as `/approvals`** — no new signing secret needed.
-   `/salesanalysis`, `/gold`, and `/skools` can go in the **same Slack app as `/sales`** — no new signing secret needed.
+   `/salesanalysis` and `/skools` can go in the **same Slack app as `/sales`**.
+   `/gold` goes in the **Gold app** [`A0C11GQ6ESE`](https://api.slack.com/apps/A0C11GQ6ESE).
 2. **Basic Information → App Credentials → Signing Secret** → copy it.
 3. **Install App → Install to Workspace.**
 
-**Two apps?** Each has its **own signing secret** — set both in Vercel
-(`SLACK_SIGNING_SECRET_APPROVAL` and `SLACK_SIGNING_SECRET_SALES`, step 3). A
-request is accepted if it matches **either** secret, so put each command in
-whichever app you like. **One app?** Both commands share one secret — set it as
-`SLACK_SIGNING_SECRET_APPROVAL` and leave the other blank.
+**Separate apps?** Each has its **own signing secret** — set them in Vercel
+(`SLACK_SIGNING_SECRET_APPROVAL`, `SLACK_SIGNING_SECRET_SALES`,
+`SLACK_SIGNING_SECRET_GOLD`, step 3). A request is accepted if it matches
+**any** secret. **One app?** Commands share one secret — set it as
+`SLACK_SIGNING_SECRET_APPROVAL` and leave the others blank.
 
 ### 3. Deploy the listener to Vercel
 1. Vercel → **Add New → Project** → import the `lgf-automation` repo as a **new
@@ -64,6 +65,7 @@ whichever app you like. **One app?** Both commands share one secret — set it a
    |---|---|
    | `SLACK_SIGNING_SECRET_APPROVAL` | signing secret of the app hosting `/approvals` (or your single app) |
    | `SLACK_SIGNING_SECRET_SALES` | signing secret of the app hosting `/sales` (leave blank if one app) |
+   | `SLACK_SIGNING_SECRET_GOLD` | signing secret of [Gold app `A0C11GQ6ESE`](https://api.slack.com/apps/A0C11GQ6ESE) |
    | `GITHUB_TOKEN` | the PAT from step 1 |
    | `GITHUB_REPO` | `arthur-lgf/lgf-automation` |
    | `GITHUB_REF_NAME` | `main` (optional; default is `main`) |
@@ -81,6 +83,7 @@ report bots. So in each channel where you'll use the commands, invite them:
 ```
 /invite @lgf_approval_report      ← for /approvals
 /invite @lgf_sales_report_bot     ← for /sales
+Add apps → LGF Gold Report     ← for /gold (C0ATW4FSK0X + C0BFN82DDLN)
 ```
 (If a bot isn't in the channel, the workflow run will fail with `not_in_channel`.)
 
