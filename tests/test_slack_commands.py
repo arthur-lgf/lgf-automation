@@ -110,6 +110,14 @@ def test_parse_skools_default_and_periods():
     assert sc.parse_command("/skools", "monthly", "C8").inputs["report"] == "monthly"
 
 
+def test_parse_gold_default_and_monthly():
+    r = sc.parse_command("/gold", "", "C4")
+    assert r.workflow == "gold-ondemand.yml"
+    assert r.inputs == {"report": "monthly", "channel": "C4"}
+    assert "gold" in r.report_label.lower()
+    assert sc.parse_command("/gold", "monthly", "C4").inputs["report"] == "monthly"
+
+
 def test_parse_bad_args_raise_usage():
     with pytest.raises(sc.CommandError) as e:
         sc.parse_command("/approvals", "yearly", "C1")
@@ -125,9 +133,12 @@ def test_parse_bad_args_raise_usage():
     with pytest.raises(sc.CommandError) as e4:
         sc.parse_command("/approvalsanalysis", "daily", "C1")
     assert "weekly" in str(e4.value)
+    with pytest.raises(sc.CommandError) as e5:
+        sc.parse_command("/gold", "daily", "C1")
+    assert "monthly" in str(e5.value)
     with pytest.raises(sc.CommandError) as unknown:
         sc.parse_command("/unknown", "", "C1")
-    assert "/approvalsanalysis" in str(unknown.value)
+    assert "/gold" in str(unknown.value)
 
 
 def test_parse_is_case_and_space_tolerant():
@@ -194,6 +205,23 @@ def test_handle_dispatches_approvalsanalysis():
     assert calls[0]["workflow"] == "approvals-analysis-ondemand.yml"
     assert calls[0]["inputs"] == {"report": "monthly", "channel": "C55"}
     assert "monthly approvals analysis" in resp.body["text"].lower()
+
+
+def test_handle_dispatches_gold():
+    body = _form(command="/gold", text="monthly", channel_id="C44")
+    ts = "1700000000"
+    calls = []
+    resp = sc.handle_slash_request(
+        raw_body=body,
+        headers={"X-Slack-Signature": _sign(ts, body), "X-Slack-Request-Timestamp": ts},
+        signing_secret=SECRET, github_token="ghp", repo="o/r", now=1700000003,
+        dispatcher=lambda **k: calls.append(k) or 204,
+    )
+    assert resp.status == 200
+    assert len(calls) == 1
+    assert calls[0]["workflow"] == "gold-ondemand.yml"
+    assert calls[0]["inputs"] == {"report": "monthly", "channel": "C44"}
+    assert "gold" in resp.body["text"].lower()
 
 
 def test_handle_dispatches_skools():

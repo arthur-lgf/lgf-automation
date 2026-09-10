@@ -29,6 +29,7 @@ _APPROVALS_ANALYSIS_REPORTS = ("weekly", "monthly")
 _SALES_REPORTS = ("daily", "monthly")
 _SALES_ANALYSIS_REPORTS = ("weekly", "monthly")
 _SKOOLS_REPORTS = ("daily", "monthly")
+_GOLD_REPORTS = ("monthly",)
 
 _APPROVALS_LABELS = {
     "today": "today's approvals",
@@ -46,6 +47,7 @@ _APPROVALS_ANALYSIS_LABELS = {
     "monthly": "monthly approvals analysis",
 }
 _SKOOLS_LABELS = {"daily": "daily Skool", "monthly": "monthly Skool"}
+_GOLD_LABELS = {"monthly": "monthly gold"}
 
 
 class CommandError(ValueError):
@@ -136,6 +138,10 @@ def _usage_skools() -> str:
     return "Usage: `/skools [daily|monthly]` (default: daily)"
 
 
+def _usage_gold() -> str:
+    return "Usage: `/gold [monthly]` (default: monthly)"
+
+
 def parse_command(command: str, text: str, channel_id: str) -> CommandResult:
     """Map a slash command + its first arg to the workflow to dispatch.
 
@@ -184,9 +190,16 @@ def parse_command(command: str, text: str, channel_id: str) -> CommandResult:
         return CommandResult(
             "skools-ondemand.yml", {"report": report, "channel": channel_id}, _SKOOLS_LABELS[report]
         )
+    if cmd == "gold":
+        report = arg or "monthly"
+        if report not in _GOLD_REPORTS:
+            raise CommandError(_usage_gold())
+        return CommandResult(
+            "gold-ondemand.yml", {"report": report, "channel": channel_id}, _GOLD_LABELS[report]
+        )
     raise CommandError(
         f"Unknown command `/{cmd}`. Try `/approvals`, `/sales`, `/salesanalysis`, "
-        f"`/approvalsanalysis`, or `/skools`."
+        f"`/approvalsanalysis`, `/skools`, or `/gold`."
     )
 
 

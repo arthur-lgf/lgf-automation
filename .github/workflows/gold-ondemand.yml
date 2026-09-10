@@ -1,0 +1,81 @@
+name: Gold Report (on demand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      report:
+        description: "Which gold report to post"
+        required: false
+        type: choice
+        default: "monthly"
+        options:
+          - monthly
+      channel:
+        description: "Slack channel ID to post to (default: SLACK_CHANNEL_ID)"
+        required: false
+        type: string
+  # On demand: Slack `/gold`. Scheduled: two cron-job.org jobs (12:30 PM ET and
+  # 5:00 PM ET daily) hit this same workflow with inputs.report=monthly and no
+  # channel, so the PNG posts to SLACK_CHANNEL_ID. See docs/SETUP-gold-report.md.
+
+permissions:
+  contents: read
+
+jobs:
+  gold:
+    name: Gold Report (on demand)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Install Playwright Chromium (with system deps)
+        run: |
+          # GitHub's ubuntu-24.04 runner ships a Google Chrome apt repo that
+          # intermittently returns "Hash Sum mismatch", making the apt-get update
+          # inside `--with-deps` fail with exit 100. We use Playwright's bundled
+          # Chromium (not Google Chrome), so drop that repo, then install with a
+          # few retries to ride out transient apt mirror hiccups.
+          sudo rm -f /etc/apt/sources.list.d/*google* 2>/dev/null || true
+          for attempt in 1 2 3; do
+            uv run playwright install --with-deps chromium && exit 0
+            echo "::warning::playwright install attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
+
+      - name: Write Google service-account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Run on-demand Gold report
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # /gold passes the channel it was invoked in; else SLACK_CHANNEL_ID.
+          SLACK_CHANNEL_ID: ${{ inputs.channel || secrets.SLACK_CHANNEL_ID }}
+          SPREADSHEET_ID: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
+          GID: "170384010"
+          ONLY_RANKED: "1"
+        run: |
+          uv run python scripts/snapshot.py \
+            --spreadsheet-id "$SPREADSHEET_ID" \
+            --gid "$GID" \
+            --range "V1:Y50" \
+            --title "Monthly Gold Report" \
+            --output slack

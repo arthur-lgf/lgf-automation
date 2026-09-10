@@ -8,13 +8,14 @@ matching GitHub workflow → the report posts back in that channel (~1–2 min).
 /approvalsanalysis [weekly|monthly]                 (default: weekly)
 /sales [daily|monthly]                              (default: daily)
 /salesanalysis [weekly|monthly]                     (default: weekly)
+/gold [monthly]                                     (default: monthly)
 /skools [daily|monthly]                             (default: daily)
 ```
 
 Nothing generates inside the listener — it only **dispatches the existing
 workflows** (`approvals.yml`, `approvals-analysis-ondemand.yml`,
 `sales-ondemand.yml`, `sales-analysis-ondemand.yml`,
-`skools-ondemand.yml`), so all the report code is reused. The function
+`gold-ondemand.yml`, `skools-ondemand.yml`), so all the report code is reused. The function
 (`api/slack.py` + `app/services/slack_commands.py`) is standard-library only.
 
 ---
@@ -40,10 +41,11 @@ name it → pick your workspace, then:
    | `/approvalsanalysis` | `https://<your-vercel-app>.vercel.app/api/slack` | `[weekly\|monthly]` |
    | `/sales` | `https://<your-vercel-app>.vercel.app/api/slack` | `[daily\|monthly]` |
    | `/salesanalysis` | `https://<your-vercel-app>.vercel.app/api/slack` | `[weekly\|monthly]` |
+   | `/gold` | `https://<your-vercel-app>.vercel.app/api/slack` | `[monthly]` |
    | `/skools` | `https://<your-vercel-app>.vercel.app/api/slack` | `[daily\|monthly]` |
    (You'll get the real Vercel URL in step 3 — paste a placeholder now and update after deploy.)
    `/approvalsanalysis` goes in the **same Slack app as `/approvals`** — no new signing secret needed.
-   `/salesanalysis` and `/skools` can go in the **same Slack app as `/sales`** — no new signing secret needed.
+   `/salesanalysis`, `/gold`, and `/skools` can go in the **same Slack app as `/sales`** — no new signing secret needed.
 2. **Basic Information → App Credentials → Signing Secret** → copy it.
 3. **Install App → Install to Workspace.**
 
@@ -107,6 +109,7 @@ Actions spin-up). Watch the run under **GitHub → Actions → Approvals Report*
   `today`, `yesterday`, `last-week`, `last-month`.
 - **`/approvalsanalysis` rejected with usage text** → invalid kind; valid values are
   `weekly`, `monthly` (not `today`).
+- **`/gold` rejected with usage text** → valid value is `monthly` (or omit).
 - **Change where reports post** → today it posts to the invoking channel; to force
   a fixed channel instead, drop the `channel` input wiring in the workflows (ask
   and I'll adjust).
