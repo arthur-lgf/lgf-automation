@@ -14,9 +14,9 @@ on:
         description: "Slack channel ID to post to (default: SLACK_CHANNEL_ID)"
         required: false
         type: string
-  # On demand: Slack `/gold`. Scheduled Gold rides snapshot.yml (existing
-  # 12:30 PM / 5:00 PM ET cron-job.org jobs). This workflow still posts to
-  # SLACK_CHANNEL_ID and also to C0BFN82DDLN. See docs/SETUP-gold-report.md.
+  # On demand: Slack `/gold`. Scheduled: dedicated cron-job.org jobs hit this
+  # workflow (not snapshot.yml). Posts to SLACK_CHANNEL_ID and also C0BFN82DDLN.
+  # See docs/SETUP-gold-report.md.
 
 permissions:
   contents: read
