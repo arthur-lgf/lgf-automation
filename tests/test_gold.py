@@ -18,7 +18,7 @@ def test_gold_defaults_are_monthly_v_y_block():
     assert gold.GOLD_TITLE == "Monthly Gold Report"
     assert gold.GOLD_GID == 170384010
     assert gold.GOLD_CHANNEL_ID == "C0ATW4FSK0X"
-    assert gold.GOLD_CHANNEL_IDS == ("C0ATW4FSK0X", "C0BFN82DDLN")
+    assert gold.GOLD_CHANNEL_IDS == ("C0ATW4FSK0X",)
     assert gold.GOLD_THEME == "gold"
 
 
@@ -27,11 +27,9 @@ def test_destination_channels_adds_extra_without_duplicating():
     assert gold.destination_channels("C111", *gold.GOLD_CHANNEL_IDS) == [
         "C111",
         "C0ATW4FSK0X",
-        "C0BFN82DDLN",
     ]
     assert gold.destination_channels("C0ATW4FSK0X", *gold.GOLD_CHANNEL_IDS) == [
         "C0ATW4FSK0X",
-        "C0BFN82DDLN",
     ]
     assert gold.destination_channels("C111", "") == ["C111"]
 

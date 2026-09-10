@@ -83,7 +83,7 @@ report bots. So in each channel where you'll use the commands, invite them:
 ```
 /invite @lgf_approval_report      ← for /approvals
 /invite @lgf_sales_report_bot     ← for /sales
-Add apps → LGF Gold Report     ← for /gold (C0ATW4FSK0X + C0BFN82DDLN)
+Add apps → LGF Gold Report     ← for /gold (C0ATW4FSK0X)
 ```
 (If a bot isn't in the channel, the workflow run will fail with `not_in_channel`.)
 

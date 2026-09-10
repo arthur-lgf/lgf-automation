@@ -6,7 +6,7 @@ own workflow and cron-job.org jobs.
 
 ```
 /gold [monthly]        (default: monthly)   — on demand
-scheduled: dedicated cron-job.org jobs at 12:30 PM ET and 5:00 PM ET
+scheduled: 1st of each month, 9:00 AM ET via cron-job.org
 ```
 
 On demand: Slack slash command → Vercel listener → `gold-ondemand.yml` →
@@ -26,7 +26,7 @@ On demand: Slack slash command → Vercel listener → `gold-ondemand.yml` →
    **Install App** to the workspace. Copy the **Bot User OAuth Token** (`xoxb-…`).
 3. GitHub → Settings → Secrets → Actions → `GOLD_SLACK_BOT_TOKEN` = that token.
 4. Vercel env `SLACK_SIGNING_SECRET_GOLD` = **Basic Information → Signing Secret**.
-5. In `C0ATW4FSK0X` and `C0BFN82DDLN`: channel name → **Integrations → Add apps**
+5. In `C0ATW4FSK0X`: channel name → **Integrations → Add apps**
    → **LGF Gold Report**. `/invite` will not resolve the bot.
 
 ## 2. Scheduled posts (cron-job.org → Gold only)
@@ -41,13 +41,12 @@ Clone an existing job at [console.cron-job.org/jobs](https://console.cron-job.or
 | Headers | same as Snapshot (`Accept`, `Authorization: Bearer <PAT>`, `X-GitHub-Api-Version`, `Content-Type`) |
 | Body | `{"ref":"main","inputs":{"report":"monthly"}}` |
 
-| Title | Hours | Minutes |
+| Job | Title | Schedule |
 |---|---|---|
-| `LGF Gold Report - 12:30 PM ET` | 12 | 30 |
-| `LGF Gold Report - 5:00 PM ET` | 17 | 0 |
+| Monthly | `LGF Gold Report - 1st 9:00 AM ET` | Days of month **1**; Hours **9**; Minutes **0**; Days of week Every |
 
-Scheduled posts go to `C0ATW4FSK0X` and `C0BFN82DDLN`. `/gold` posts in the
-channel where it was invoked, plus those two if they are different.
+Scheduled posts go to `C0ATW4FSK0X`. `/gold` posts in the channel where it
+was invoked, plus `C0ATW4FSK0X` if that is different.
 
 A GitHub Actions run **Gold Report (on demand)** **Triggered via API** is success.
 Snapshot stays Daily + Monthly Sales only.
@@ -60,7 +59,7 @@ uv run python scripts/gold.py --output file --out-path gold.png
 ```
 
 `--output slack` posts with `GOLD_SLACK_BOT_TOKEN` (fallback `SLACK_BOT_TOKEN`)
-to `C0ATW4FSK0X` and `C0BFN82DDLN`.
+to `C0ATW4FSK0X`.
 
 ## 4. Push `main`
 `gold-ondemand.yml` and `scripts/gold.py` must exist on `main` before the Gold cron jobs will 204.

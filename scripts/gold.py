@@ -1,9 +1,8 @@
 """Standalone CLI: post the Monthly Gold Report to Slack.
 
 Same pipeline as scripts/snapshot.py (fetch sheet → render → screenshot → Slack),
-but only the Gold block: Sales Report tab columns V:Y. Posts to the Gold channels
-C0ATW4FSK0X and C0BFN82DDLN (and, for /gold, also the invoking channel if that
-is different).
+but only the Gold block: Sales Report tab columns V:Y. Posts to C0ATW4FSK0X
+(and, for /gold, also the invoking channel if that is different).
 
 Required env (or CLI args):
   GOOGLE_APPLICATION_CREDENTIALS  path to service-account JSON
@@ -11,7 +10,7 @@ Required env (or CLI args):
   SLACK_CHANNEL_ID                primary channel (when --output=slack)
 Optional:
   GOLD_SLACK_BOT_TOKEN            Gold Slack app bot (else SLACK_BOT_TOKEN)
-  GOLD_CHANNEL_ID                 extra Gold channel (defaults include C0ATW4FSK0X + C0BFN82DDLN)
+  GOLD_CHANNEL_ID                 Gold channel (default C0ATW4FSK0X)
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ GOLD_GID = 170384010
 GOLD_RANGE = "V1:Y50"
 GOLD_TITLE = "Monthly Gold Report"
 GOLD_CHANNEL_ID = "C0ATW4FSK0X"
-GOLD_CHANNEL_IDS = ("C0ATW4FSK0X", "C0BFN82DDLN")
+GOLD_CHANNEL_IDS = ("C0ATW4FSK0X",)
 GOLD_THEME = "gold"
 
 

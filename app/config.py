@@ -30,8 +30,8 @@ class Settings(BaseSettings):
         default=None, alias="GOLD_SLACK_BOT_TOKEN"
     )
     gold_channel_id: str = Field(default="C0ATW4FSK0X", alias="GOLD_CHANNEL_ID")
-    gold_extra_channel_id: str = Field(
-        default="C0BFN82DDLN", alias="GOLD_EXTRA_CHANNEL_ID"
+    gold_extra_channel_id: Optional[str] = Field(
+        default=None, alias="GOLD_EXTRA_CHANNEL_ID"
     )
 
     default_spreadsheet_id: Optional[str] = Field(
