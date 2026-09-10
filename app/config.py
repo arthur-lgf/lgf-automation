@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         default=None, alias="GOLD_SLACK_BOT_TOKEN"
     )
     gold_channel_id: str = Field(default="C0ATW4FSK0X", alias="GOLD_CHANNEL_ID")
+    # Test-only extra channel C0BFN82DDLN. Leave unset in production.
     gold_extra_channel_id: Optional[str] = Field(
         default=None, alias="GOLD_EXTRA_CHANNEL_ID"
     )
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
     approvals_range: str = Field(default="A1:L", alias="APPROVALS_RANGE")
     # Channel the report is posted to (the bot must be a member). Falls
     # back to SLACK_CHANNEL_ID when unset.
+    # Test-only channel C0BFN82DDLN. Leave unset in production.
     approvals_channel_id: Optional[str] = Field(
         default=None, alias="APPROVALS_CHANNEL_ID"
     )

@@ -47,6 +47,7 @@ Clone an existing job at [console.cron-job.org/jobs](https://console.cron-job.or
 
 Scheduled posts go to `C0ATW4FSK0X`. `/gold` posts in the channel where it
 was invoked, plus `C0ATW4FSK0X` if that is different.
+`C0BFN82DDLN` is test-only — leave `GOLD_EXTRA_CHANNEL_ID` commented.
 
 A GitHub Actions run **Gold Report (on demand)** **Triggered via API** is success.
 Snapshot stays Daily + Monthly Sales only.

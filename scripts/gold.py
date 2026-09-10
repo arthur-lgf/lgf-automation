@@ -33,6 +33,7 @@ GOLD_RANGE = "V1:Y50"
 GOLD_TITLE = "Monthly Gold Report"
 GOLD_CHANNEL_ID = "C0ATW4FSK0X"
 GOLD_CHANNEL_IDS = ("C0ATW4FSK0X",)
+# Test-only extra channel: C0BFN82DDLN. Uncomment GOLD_EXTRA_CHANNEL_ID to post there.
 GOLD_THEME = "gold"
 
 

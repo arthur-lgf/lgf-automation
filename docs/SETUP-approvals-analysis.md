@@ -45,8 +45,9 @@ Both jobs:
 | Monthly | `LGF Approvals Analysis - 1st 9:00 AM ET` | Days of month **1**; Hours **9**; Minutes **0**; Days of week Every | `{"ref":"main","inputs":{"kind":"monthly"}}` |
 
 A 204 from cron-job.org plus a GitHub Actions run **Triggered via API** is success.
-The PNG posts to Slack channel `C0BFN82DDLN`. Invite `@lgf_approval_report`
-there (`/invite @lgf_approval_report`) if it is not already a member.
+The PNG posts to `APPROVALS_CHANNEL_ID`. `C0BFN82DDLN` is test-only — leave
+it commented. Invite `@lgf_approval_report` in the production channel
+(`/invite @lgf_approval_report`) if it is not already a member.
 
 ## 3. Push `main`
 `approvals-analysis-ondemand.yml` and `approvals-analysis-scheduled.yml` must
@@ -73,5 +74,5 @@ exist on `main` before dispatch / cron-job.org will 204.
   Empty-data text uses `chat.postMessage`.
 - **No new secrets:** reuses `APPROVALS_SLACK_BOT_TOKEN` (fallback
   `SLACK_BOT_TOKEN`) and `GOOGLE_SERVICE_ACCOUNT_JSON`. Scheduled charts post
-  to `C0BFN82DDLN`. `/approvalsanalysis` still posts in the channel where it
-  was invoked.
+  to `APPROVALS_CHANNEL_ID`. `C0BFN82DDLN` is test-only — leave it commented.
+  `/approvalsanalysis` still posts in the channel where it was invoked.
