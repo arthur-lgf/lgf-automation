@@ -14,9 +14,9 @@ on:
         description: "Slack channel ID to post to (default: SLACK_CHANNEL_ID)"
         required: false
         type: string
-  # On demand: Slack `/gold`. Scheduled: two cron-job.org jobs (12:30 PM ET and
-  # 5:00 PM ET daily) hit this same workflow with inputs.report=monthly and no
-  # channel, so the PNG posts to SLACK_CHANNEL_ID. See docs/SETUP-gold-report.md.
+  # On demand: Slack `/gold`. Scheduled Gold rides snapshot.yml (existing
+  # 12:30 PM / 5:00 PM ET cron-job.org jobs). This workflow still posts to
+  # SLACK_CHANNEL_ID and also to C0BFN82DDLN. See docs/SETUP-gold-report.md.
 
 permissions:
   contents: read
@@ -69,13 +69,20 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # /gold passes the channel it was invoked in; else SLACK_CHANNEL_ID.
           SLACK_CHANNEL_ID: ${{ inputs.channel || secrets.SLACK_CHANNEL_ID }}
+          GOLD_EXTRA_CHANNEL_ID: C0BFN82DDLN
           SPREADSHEET_ID: "12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k"
           GID: "170384010"
           ONLY_RANKED: "1"
         run: |
-          uv run python scripts/snapshot.py \
-            --spreadsheet-id "$SPREADSHEET_ID" \
-            --gid "$GID" \
-            --range "V1:Y50" \
-            --title "Monthly Gold Report" \
-            --output slack
+          post_gold() {
+            SLACK_CHANNEL_ID="$1" uv run python scripts/snapshot.py \
+              --spreadsheet-id "$SPREADSHEET_ID" \
+              --gid "$GID" \
+              --range "V1:Y50" \
+              --title "Monthly Gold Report" \
+              --output slack
+          }
+          post_gold "$SLACK_CHANNEL_ID"
+          if [ -n "$GOLD_EXTRA_CHANNEL_ID" ] && [ "$GOLD_EXTRA_CHANNEL_ID" != "$SLACK_CHANNEL_ID" ]; then
+            post_gold "$GOLD_EXTRA_CHANNEL_ID"
+          fi

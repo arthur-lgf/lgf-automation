@@ -5,7 +5,7 @@ Ranked table from the Sales Report tab **V:Y**, same `dark_green` look as
 
 ```
 /gold [monthly]        (default: monthly)   — on demand
-scheduled: 12:30 PM ET and 5:00 PM ET daily via cron-job.org
+scheduled: existing Snapshot cron-job.org jobs at 12:30 PM ET and 5:00 PM ET
 ```
 
 Same pipeline as Sales: Slack slash command → Vercel listener → GitHub
@@ -20,30 +20,20 @@ Same pipeline as Sales: Slack slash command → Vercel listener → GitHub
    | Command | Request URL | Usage hint |
    |---|---|---|
    | `/gold` | `https://lgf-automation.vercel.app/api/slack` | `[monthly]` |
-2. Save. Invite `@lgf_sales_report_bot` (`/invite @lgf_sales_report_bot`).
+2. Save. Invite `@lgf_sales_report_bot` in the sales channel and in
+   `C0BFN82DDLN` (`/invite @lgf_sales_report_bot`).
 
-## 2. Scheduled posts (cron-job.org → GitHub Actions)
-Clone an existing Snapshot job per `docs/SCHEDULING.md` §§5–7 (same PAT, headers).
-Change only title, URL, and body.
+## 2. Scheduled posts
+Gold rides the **existing** Snapshot cron-job.org jobs (`docs/SCHEDULING.md`):
+**12:30 PM ET** and **5:00 PM ET** daily. No new console job. Those jobs already
+dispatch `snapshot.yml`; Gold is a third matrix report (`V1:Y50`).
 
-| Field | Value |
-|---|---|
-| URL | `https://api.github.com/repos/arthur-lgf/lgf-automation/actions/workflows/gold-ondemand.yml/dispatches` |
-| Method | `POST` |
-| Time zone | `America/New_York` |
-| Headers | `Accept: application/vnd.github+json`; `Authorization: Bearer <PAT>`; `X-GitHub-Api-Version: 2022-11-28`; `Content-Type: application/json` |
-| Body | `{"ref":"main","inputs":{"report":"monthly"}}` |
-| Notify on failure | On, threshold 2 |
+Scheduled posts go to `SLACK_CHANNEL_ID` **and** `C0BFN82DDLN`. Invite
+`@lgf_sales_report_bot` in both. `/gold` posts in the channel where it was
+invoked, plus `C0BFN82DDLN` if that is a different channel.
 
-| Job | Title | Schedule |
-|---|---|---|
-| Midday | `LGF Gold Report - 12:30 PM ET` | Days of month Every; Days of week Every; Hours **12**; Minutes **30** |
-| Evening | `LGF Gold Report - 5:00 PM ET` | Days of month Every; Days of week Every; Hours **17**; Minutes **0** |
-
-Scheduled posts go to `SLACK_CHANNEL_ID` (no channel input). `/gold` still posts
-in the channel where it was invoked.
-
-A 204 from cron-job.org plus a GitHub Actions run **Triggered via API** is success.
+A GitHub Actions run **Snapshot → Monthly Gold Report** is success.
 
 ## 3. Push `main`
-`gold-ondemand.yml` must exist on `main` before dispatch / cron-job.org will 204.
+`snapshot.yml` (Gold matrix row) and `gold-ondemand.yml` must be on `main`
+before the next 12:30 / 5:00 PM ET Snapshot fire.

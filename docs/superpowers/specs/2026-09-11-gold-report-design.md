@@ -9,9 +9,9 @@ posted to Slack. Same look and pipeline as `/sales monthly`.
 
 - On demand: `/gold` or `/gold monthly` posts one table PNG in the channel the
   command was run from.
-- Scheduled via [cron-job.org](https://cron-job.org/): **12:30 PM ET** and
-  **5:00 PM ET** daily, same wall-clock times as Snapshot. Posts to
-  `SLACK_CHANNEL_ID` using the sales bot.
+- Scheduled: existing Snapshot cron-job.org jobs at **12:30 PM ET** and
+  **5:00 PM ET** daily (`snapshot.yml` matrix includes Monthly Gold Report).
+  Posts to `SLACK_CHANNEL_ID` and also to `C0BFN82DDLN` using the sales bot.
 - Source is columns **V–Y** on the Sales Report tab (gid `170384010`) of
   spreadsheet `12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k`.
 - Visual match: `dark_green` ranked table (same as `/sales`), title
@@ -21,7 +21,7 @@ posted to Slack. Same look and pipeline as `/sales monthly`.
 
 - No daily Gold block, no `/gold daily`.
 - Do not change `/sales`, `/skools`, snapshot.yml, or `scripts/snapshot.py`.
-- Scheduling is a cron-job.org job hitting `gold-ondemand.yml` (same PAT as Snapshot).
+- Scheduling uses the existing Snapshot cron-job.org jobs (`snapshot.yml` matrix).
 - No new Slack app, signing secret, bot, or GitHub Actions secret.
 
 ## Architecture
@@ -33,10 +33,10 @@ posted to Slack. Same look and pipeline as `/sales monthly`.
         → scripts/snapshot.py  (unchanged)
         → Slack PNG in the invoking channel
 
-cron-job.org (12:30 PM ET / 5:00 PM ET daily)
-        → GitHub gold-ondemand.yml
-        → same script
-        → Slack PNG in SLACK_CHANNEL_ID
+cron-job.org Snapshot jobs (12:30 PM ET / 5:00 PM ET daily)
+        → GitHub snapshot.yml (Monthly Gold Report matrix)
+        → scripts/snapshot.py
+        → Slack PNG in SLACK_CHANNEL_ID and C0BFN82DDLN
 ```
 
 ## Sheet

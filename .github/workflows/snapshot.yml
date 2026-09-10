@@ -37,6 +37,10 @@ jobs:
           - key: monthly
             title: "Monthly Sales Report"
             range: "G1:J50"
+          - key: gold
+            title: "Monthly Gold Report"
+            range: "V1:Y50"
+            extra_channel: "C0BFN82DDLN"
     steps:
       - uses: actions/checkout@v5
 
@@ -85,8 +89,17 @@ jobs:
           REPORT_RANGE: ${{ matrix.report.range }}
           REPORT_TITLE: ${{ matrix.report.title }}
           REPORT_KEY: ${{ matrix.report.key }}
+          EXTRA_CHANNEL: ${{ matrix.report.extra_channel }}
           ONLY_RANKED: "1"
         run: |
+          post_one() {
+            SLACK_CHANNEL_ID="$1" uv run python scripts/snapshot.py \
+              --spreadsheet-id "$SPREADSHEET_ID" \
+              --gid "$GID" \
+              --range "$REPORT_RANGE" \
+              --title "$REPORT_TITLE" \
+              --output slack
+          }
           if [ "$OUTPUT" = "file" ]; then
             uv run python scripts/snapshot.py \
               --spreadsheet-id "$SPREADSHEET_ID" \
@@ -96,12 +109,10 @@ jobs:
               --output file \
               --out-path "snapshot-${REPORT_KEY}.png"
           else
-            uv run python scripts/snapshot.py \
-              --spreadsheet-id "$SPREADSHEET_ID" \
-              --gid "$GID" \
-              --range "$REPORT_RANGE" \
-              --title "$REPORT_TITLE" \
-              --output slack
+            post_one "$SLACK_CHANNEL_ID"
+            if [ -n "$EXTRA_CHANNEL" ] && [ "$EXTRA_CHANNEL" != "$SLACK_CHANNEL_ID" ]; then
+              post_one "$EXTRA_CHANNEL"
+            fi
           fi
 
       - name: Upload PNG as workflow artifact
