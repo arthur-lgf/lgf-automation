@@ -63,7 +63,7 @@ jobs:
       - name: Run scheduled approvals-analysis charts
         env:
           SLACK_BOT_TOKEN: ${{ secrets.APPROVALS_SLACK_BOT_TOKEN || secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.APPROVALS_CHANNEL_ID || secrets.SLACK_CHANNEL_ID }}
+          SLACK_CHANNEL_ID: C0BFN82DDLN
           KIND: ${{ inputs.kind || 'both' }}
           GATE: ${{ inputs.gate || 'none' }}
         run: |

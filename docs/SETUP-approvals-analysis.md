@@ -45,7 +45,8 @@ Both jobs:
 | Monthly | `LGF Approvals Analysis - 1st 9:00 AM ET` | Days of month **1**; Hours **9**; Minutes **0**; Days of week Every | `{"ref":"main","inputs":{"kind":"monthly"}}` |
 
 A 204 from cron-job.org plus a GitHub Actions run **Triggered via API** is success.
-The PNG posts to `APPROVALS_CHANNEL_ID` (fallback `SLACK_CHANNEL_ID`).
+The PNG posts to Slack channel `C0BFN82DDLN`. Invite `@lgf_approval_report`
+there (`/invite @lgf_approval_report`) if it is not already a member.
 
 ## 3. Push `main`
 `approvals-analysis-ondemand.yml` and `approvals-analysis-scheduled.yml` must
@@ -70,6 +71,7 @@ exist on `main` before dispatch / cron-job.org will 204.
 - **Slack scopes:** the approvals bot token (`APPROVALS_SLACK_BOT_TOKEN`, with
   fallback `SLACK_BOT_TOKEN`) must have both `files:write` and `chat:write`.
   Empty-data text uses `chat.postMessage`.
-- **No new secrets:** reuses `APPROVALS_SLACK_BOT_TOKEN` / `APPROVALS_CHANNEL_ID`
-  (fallback `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID`), `GOOGLE_SERVICE_ACCOUNT_JSON`,
-  and the existing GitHub PAT / Slack signing secret.
+- **No new secrets:** reuses `APPROVALS_SLACK_BOT_TOKEN` (fallback
+  `SLACK_BOT_TOKEN`) and `GOOGLE_SERVICE_ACCOUNT_JSON`. Scheduled charts post
+  to `C0BFN82DDLN`. `/approvalsanalysis` still posts in the channel where it
+  was invoked.

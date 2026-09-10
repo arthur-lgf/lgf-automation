@@ -12,7 +12,7 @@ on:
           - weekly
           - monthly
       channel:
-        description: "Slack channel ID to post to (default: APPROVALS_CHANNEL_ID or SLACK_CHANNEL_ID)"
+        description: "Slack channel ID to post to (default: C0BFN82DDLN)"
         required: false
         type: string
   # No schedule: this workflow exists for the Slack `/approvalsanalysis` command,
@@ -55,8 +55,8 @@ jobs:
       - name: Run on-demand approvals-analysis chart
         env:
           SLACK_BOT_TOKEN: ${{ secrets.APPROVALS_SLACK_BOT_TOKEN || secrets.SLACK_BOT_TOKEN }}
-          # /approvalsanalysis passes the channel it was invoked in.
-          SLACK_CHANNEL_ID: ${{ inputs.channel || secrets.APPROVALS_CHANNEL_ID || secrets.SLACK_CHANNEL_ID }}
+          # /approvalsanalysis passes the channel it was invoked in; else C0BFN82DDLN.
+          SLACK_CHANNEL_ID: ${{ inputs.channel || 'C0BFN82DDLN' }}
           KIND: ${{ inputs.report || 'weekly' }}
         run: |
           uv run python scripts/approvals_analysis.py --kind "$KIND" --output slack
