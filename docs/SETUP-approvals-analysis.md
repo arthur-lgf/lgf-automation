@@ -1,7 +1,9 @@
 # Approvals Analysis charts (`/approvalsanalysis`, weekly + monthly)
 
-Bar charts of **approved amount** from the APPTRACK 3.0 **APPS** tab — WEEKLY
-and MONTHLY totals — posted with the same dark LGF look as Sales Analysis.
+Bar charts of **approved amount** using the same SUMPRODUCT as the KPI
+[APPROVALS ANALYSIS](https://docs.google.com/spreadsheets/d/12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k/edit?gid=1040888586)
+tab — WEEKLY and MONTHLY totals — posted with the same dark LGF look as Sales
+Analysis.
 
 ```
 /approvalsanalysis [weekly|monthly]        (default: weekly)   — on demand
@@ -9,8 +11,8 @@ scheduled: every Monday (weekly) + 1st of month (monthly) via cron-job.org
 ```
 
 Same architecture as Sales Analysis: Slack slash command → Vercel listener →
-GitHub `workflow_dispatch` → `scripts/approvals_analysis.py` renders + posts
-the PNG(s).
+GitHub `workflow_dispatch` → `scripts/approvals_analysis.py` runs the KPI
+SUMPRODUCT on Apptrack Raw and posts the PNG(s).
 
 ---
 
@@ -66,9 +68,11 @@ exist on `main` before dispatch / cron-job.org will 204.
 
 ## Notes
 - **Look:** same renderer as Sales Analysis (`app/services/chart_renderer.py`).
-- **Data:** APPS `Date Approved` + amount. Weekly = last 6 completed Mon–Sun
-  weeks (`WE MM.DD`). Monthly = last 5 completed months + current month if it
-  has approvals (`Apr 2026`).
+- **Data:** same formula as [APPROVALS ANALYSIS](https://docs.google.com/spreadsheets/d/12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k/edit?gid=1040888586):
+  sum **Apptrack Raw H** (Amount Approved For) where **B Date Approved** is
+  in the period. No status filter. Weekly = current Mon–Sun week plus the 5
+  before it (`WE MM.DD`). Monthly = current month plus the 5 before it
+  (`Apr 2026`), matching the sheet graphs.
 - **Slack scopes:** the approvals bot token (`APPROVALS_SLACK_BOT_TOKEN`, with
   fallback `SLACK_BOT_TOKEN`) must have both `files:write` and `chat:write`.
   Empty-data text uses `chat.postMessage`.

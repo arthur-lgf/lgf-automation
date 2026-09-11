@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         default="1Tc8x72ys7_oWQnUm03LWa-KHgHMXmX2HGH7gz1-xC_c",
         alias="APPROVALS_SPREADSHEET_ID",
     )
-    approvals_gid: int = Field(default=340057391, alias="APPROVALS_GID")
+    approvals_gid: int = Field(default=1445226540, alias="APPROVALS_GID")
     # Passing the tab name lets fetch_values skip the extra gid->name metadata
     # round-trip. Blank it to fall back to gid resolution.
     approvals_sheet_name: str = Field(default="APPS", alias="APPROVALS_SHEET_NAME")
@@ -92,13 +92,27 @@ class Settings(BaseSettings):
         return dict(zip(keys, parts))
 
     # --- Approvals Analysis charts (scripts/approvals_analysis.py) ----------
-    # Weekly + monthly bar charts aggregated from the APPS tab (same sheet as
-    # the tables). Mirrors SALES_ANALYSIS_WEEKLY_WEEKS / _MONTHLY_MONTHS.
+    # Same SUMPRODUCT as the KPI APPROVALS ANALYSIS tab, run on Apptrack Raw:
+    # Date Approved (B) + Amount Approved For (H), no status filter.
+    # https://docs.google.com/spreadsheets/d/12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k/edit?gid=1040888586
+    approvals_analysis_spreadsheet_id: str = Field(
+        default="12glaANnP2BsQfH_kHfRlzA40JdWAU-PJgDT-56yRV8k",
+        alias="APPROVALS_ANALYSIS_SPREADSHEET_ID",
+    )
+    approvals_analysis_gid: int = Field(
+        default=1037418474, alias="APPROVALS_ANALYSIS_GID"
+    )
+    approvals_analysis_sheet_name: str = Field(
+        default="Apptrack Raw", alias="APPROVALS_ANALYSIS_SHEET_NAME"
+    )
+    approvals_analysis_range: str = Field(
+        default="A1:H", alias="APPROVALS_ANALYSIS_RANGE"
+    )
     approvals_analysis_weekly_weeks: int = Field(
         default=6, alias="APPROVALS_ANALYSIS_WEEKLY_WEEKS"
     )
     approvals_analysis_monthly_months: int = Field(
-        default=5, alias="APPROVALS_ANALYSIS_MONTHLY_MONTHS"
+        default=6, alias="APPROVALS_ANALYSIS_MONTHLY_MONTHS"
     )
 
     # --- Sales Analysis charts (scripts/sales_analysis.py) -----------------

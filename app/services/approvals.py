@@ -15,9 +15,11 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 # 0-based column indices within an ``A1:L`` fetch of the APPS tab.
-# (B=Date Approved, E=Client, G=Bank, I=Amount, K=Invoice Sent, L=Rep)
+# (B=Date Approved, D=Status, E=Client, G=Bank, I=Amount Approved For,
+#  K=Invoice Sent, L=Rep)
 DEFAULT_COLS: dict[str, int] = {
     "date_approved": 1,
+    "status": 3,
     "client": 4,
     "bank": 6,
     "amount": 8,

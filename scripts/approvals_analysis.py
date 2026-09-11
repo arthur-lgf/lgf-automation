@@ -3,7 +3,8 @@
 Same serverless pattern as scripts/snapshot.py — designed to run from GitHub
 Actions. Reuses the shared services (sheets -> approvals_analysis ->
 chart_renderer -> screenshot -> slack). The Google embedded charts can't be
-screenshotted on a runner, so we re-render them from the APPTRACK APPS data.
+screenshotted on a runner, so we re-render them with the APPROVALS ANALYSIS
+SUMPRODUCT against Apptrack Raw.
 
   --kind weekly|monthly|both   which chart(s); 'both' posts one Slack message.
   --gate none|first-monday|last-day   scheduled-cadence guard; a non-matching
@@ -83,21 +84,15 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"Gate '{args.gate}' not met for {today.isoformat()}; nothing posted.")
         return 0
 
-    try:
-        cols = settings.approvals_cols_map()
-    except ValueError as exc:
-        print(f"::error::config: {exc}", file=sys.stderr)
-        return 2
-
-    spreadsheet_id = args.spreadsheet_id or settings.approvals_spreadsheet_id
-    gid = args.gid if args.gid is not None else settings.approvals_gid
-    range_a1 = args.range_a1 or settings.approvals_range
+    spreadsheet_id = args.spreadsheet_id or settings.approvals_analysis_spreadsheet_id
+    gid = args.gid if args.gid is not None else settings.approvals_analysis_gid
+    range_a1 = args.range_a1 or settings.approvals_analysis_range
 
     try:
         values = fetch_values(
             spreadsheet_id=spreadsheet_id,
             range_a1=range_a1,
-            sheet_name=settings.approvals_sheet_name,
+            sheet_name=settings.approvals_analysis_sheet_name,
             gid=gid,
             source="api",
             credentials_path=settings.google_application_credentials,
@@ -118,7 +113,6 @@ async def _run(args: argparse.Namespace) -> int:
             values,
             kind,
             today=today,
-            cols=cols,
             weekly_weeks=settings.approvals_analysis_weekly_weeks,
             monthly_months=settings.approvals_analysis_monthly_months,
         )

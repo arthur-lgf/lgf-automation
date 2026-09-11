@@ -1,28 +1,36 @@
-"""Bucket APPS rows into a weekly/monthly bar-chart series.
+"""Bucket Apptrack Raw rows into a weekly/monthly bar-chart series.
 
-Pure data shaping — no network, no rendering. The series is fed to
-``chart_renderer.render_bar_chart`` the same way Sales Analysis uses
-``chart_data.build_analysis_series``.
+Mirrors the APPROVALS ANALYSIS tab SUMPRODUCT on the KPI workbook:
+
+  =SUMPRODUCT(
+    IFERROR(VALUE('Apptrack Raw'!$H$2:$H),0)*
+    (INT('Apptrack Raw'!$B$2:$B)>=start)*
+    (INT('Apptrack Raw'!$B$2:$B)<=end)
+  )
+
+B = Date Approved, H = Amount Approved For. No status or client filter.
 """
 from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Optional
 
-from app.services.approvals import DEFAULT_COLS, _cell, parse_amount, parse_date
+from app.services.approvals import _cell, parse_amount, parse_date
 
 _MONTH_ABBR = (
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )
 
+# 0-based indices within an A:H fetch of Apptrack Raw.
+APPTRACK_RAW_COLS: dict[str, int] = {
+    "date_approved": 1,  # B
+    "amount": 7,         # H Amount Approved For
+}
+
 
 def _sunday_of(day: date) -> date:
     return day + timedelta(days=(6 - day.weekday()))
-
-
-def _last_completed_sunday(today: date) -> date:
-    return today - timedelta(days=today.weekday() + 1)
 
 
 def _shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
@@ -34,8 +42,6 @@ def _iter_deals(values: list[list[str]], cols: dict[str, int]):
     for row in values:
         approved = parse_date(_cell(row, cols["date_approved"]))
         if approved is None:
-            continue
-        if not _cell(row, cols["client"]):
             continue
         yield approved, parse_amount(_cell(row, cols["amount"]))
 
@@ -51,7 +57,7 @@ def build_approvals_analysis_series(
     today: date,
     cols: Optional[dict[str, int]] = None,
     weekly_weeks: int = 6,
-    monthly_months: int = 5,
+    monthly_months: int = 6,
 ) -> list[tuple[str, float]]:
     """Return ``[(label, amount), …]`` oldest-first.
 
@@ -60,7 +66,7 @@ def build_approvals_analysis_series(
     """
     if kind not in ("weekly", "monthly"):
         raise ValueError(f"kind must be 'weekly' or 'monthly'; got {kind!r}")
-    cols = cols or DEFAULT_COLS
+    cols = cols or APPTRACK_RAW_COLS
     if kind == "weekly":
         series = _weekly_series(values, today, cols, weekly_weeks)
     else:
@@ -73,7 +79,7 @@ def _weekly_series(
 ) -> list[tuple[str, float]]:
     if n <= 0:
         return []
-    last_sunday = _last_completed_sunday(today)
+    last_sunday = _sunday_of(today)
     sundays = [last_sunday - timedelta(days=7 * i) for i in range(n - 1, -1, -1)]
     totals = {sunday: 0.0 for sunday in sundays}
     lo, hi = sundays[0] - timedelta(days=6), sundays[-1]
@@ -94,24 +100,13 @@ def _monthly_series(
 ) -> list[tuple[str, float]]:
     if n <= 0:
         return []
-    last_prev = today.replace(day=1) - timedelta(days=1)
-    completed: list[tuple[int, int]] = []
-    for i in range(n - 1, -1, -1):
-        completed.append(_shift_month(last_prev.year, last_prev.month, -i))
-    buckets = {key: 0.0 for key in completed}
-    current_key = (today.year, today.month)
-    current_total = 0.0
+    months = [_shift_month(today.year, today.month, -i) for i in range(n - 1, -1, -1)]
+    totals = {key: 0.0 for key in months}
     for approved, amount in _iter_deals(values, cols):
         key = (approved.year, approved.month)
-        if key in buckets:
-            buckets[key] += amount
-        elif key == current_key:
-            current_total += amount
-    series = [
-        (f"{_MONTH_ABBR[month - 1]} {year}", buckets[(year, month)])
-        for year, month in completed
+        if key in totals:
+            totals[key] += amount
+    return [
+        (f"{_MONTH_ABBR[month - 1]} {year}", totals[(year, month)])
+        for year, month in months
     ]
-    if current_total > 0:
-        y, m = current_key
-        series.append((f"{_MONTH_ABBR[m - 1]} {y}", current_total))
-    return series
