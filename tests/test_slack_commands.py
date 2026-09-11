@@ -98,7 +98,7 @@ def test_parse_approvalsanalysis_default_and_periods():
     r = sc.parse_command("/approvalsanalysis", "", "C7")
     assert r.workflow == "approvals-analysis-ondemand.yml"
     assert r.inputs == {"report": "weekly", "channel": "C7"}
-    assert "analysis" in r.report_label.lower()
+    assert "trend" in r.report_label.lower()
     assert sc.parse_command("/approvalsanalysis", "monthly", "C7").inputs["report"] == "monthly"
 
 
@@ -204,7 +204,7 @@ def test_handle_dispatches_approvalsanalysis():
     assert len(calls) == 1
     assert calls[0]["workflow"] == "approvals-analysis-ondemand.yml"
     assert calls[0]["inputs"] == {"report": "monthly", "channel": "C55"}
-    assert "monthly approvals analysis" in resp.body["text"].lower()
+    assert "monthly approvals trend" in resp.body["text"].lower()
 
 
 def test_handle_dispatches_gold():

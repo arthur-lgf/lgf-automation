@@ -33,7 +33,7 @@ from app.services.screenshot import ScreenshotError, snapshot_html
 from app.services.sheets import SheetAccessError, fetch_values
 from app.services.slack import SlackUploadError, post_message, upload_png, upload_pngs
 
-_TITLES = {"weekly": "Weekly Approvals Analysis", "monthly": "Monthly Approvals Analysis"}
+_TITLES = {"weekly": "Weekly Approvals Trend", "monthly": "Monthly Approvals Trend"}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -175,7 +175,7 @@ async def _run(args: argparse.Namespace) -> int:
                 [(png, filename) for png, filename, _ in images],
                 token=token,
                 channel=channel,
-                initial_comment=":bar_chart: *Approvals Analysis* — weekly & monthly",
+                initial_comment=":bar_chart: *Approvals Trend* — weekly & monthly",
             )
             print(f"Uploaded {result.get('count')} charts to Slack as one message.")
     except SlackUploadError as exc:

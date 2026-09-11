@@ -43,8 +43,8 @@ _SALES_ANALYSIS_LABELS = {
     "monthly": "monthly sales analysis",
 }
 _APPROVALS_ANALYSIS_LABELS = {
-    "weekly": "weekly approvals analysis",
-    "monthly": "monthly approvals analysis",
+    "weekly": "weekly approvals trend",
+    "monthly": "monthly approvals trend",
 }
 _SKOOLS_LABELS = {"daily": "daily Skool", "monthly": "monthly Skool"}
 _GOLD_LABELS = {"monthly": "monthly gold"}
